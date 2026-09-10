@@ -1,0 +1,20 @@
+{
+  "functions": {
+    "api/health.js": { "maxDuration": 10 },
+    "api/threads.js": { "maxDuration": 20 },
+    "api/workspace.js": { "maxDuration": 30 },
+    "api/exec.js": { "maxDuration": 60 },
+    "api/agent.js": { "maxDuration": 300 }
+  },
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET,POST,PUT,PATCH,DELETE,OPTIONS" },
+        { "key": "Access-Control-Allow-Headers", "value": "Content-Type, Authorization, Accept, x-chatre-key" },
+        { "key": "Access-Control-Max-Age", "value": "86400" }
+      ]
+    }
+  ]
+}

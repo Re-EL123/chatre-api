@@ -1,0 +1,9 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Chatre data is Admin-SDK only (Vercel API). Deny all client access.
+    match /sites/chatre/{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
