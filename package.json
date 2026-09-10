@@ -8,7 +8,9 @@
   },
   "scripts": {
     "dev": "vercel dev --listen 8080",
-    "start": "node scripts/selfhost.js"
+    "start": "node scripts/selfhost.js",
+    "check-env": "node scripts/check-env.js",
+    "predeploy": "node scripts/check-env.js"
   },
   "dependencies": {
     "firebase-admin": "^13.0.0",
