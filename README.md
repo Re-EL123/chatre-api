@@ -2,7 +2,7 @@
 
 Vercel serverless backend for **Chatre**: Firestore-persisted threads/workspaces, real command execution against a materialized sandbox, and **SSE streaming agent** runs that call your Cloudflare Workers AI chat endpoint.
 
-Keep this folder as its **own git remote** (nested repo). From this directory you can `vercel` deploy independently of `chatre1`.
+Keep this repo at **`/home/akani/Documents/chatre-api`** (sibling to `chatre1`). Deploy independently with Vercel.
 
 ## Stack
 
