@@ -67,7 +67,7 @@ module.exports = async function handler(req, res) {
       userMessage: wantResume ? '' : message,
       history,
       model: body.model || thr.model,
-      maxIterations: body.maxIterations || 20,
+      maxIterations: body.maxIterations || 25,
       resume: wantResume,
       budgetMs: body.budgetMs,
     };
