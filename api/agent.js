@@ -35,9 +35,10 @@ module.exports = async function handler(req, res) {
         return sendJson(res, 400, { error: 'threadId required to resume' });
       }
       const st = thr.agentRun && thr.agentRun.status;
-      if (st !== 'interrupted' && st !== 'awaiting_plan') {
+      if (st !== 'interrupted' && st !== 'awaiting_plan' && st !== 'awaiting_login') {
         return sendJson(res, 409, {
-          error: 'No interrupted/awaiting_plan agent run to resume on this thread',
+          error:
+            'No interrupted/awaiting_plan/awaiting_login agent run to resume on this thread',
           agentRun: thr.agentRun || null,
         });
       }
