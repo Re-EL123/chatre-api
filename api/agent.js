@@ -20,7 +20,7 @@ module.exports = async function handler(req, res) {
     return sendJson(res, 400, { error: e.message });
   }
 
-  const wantResume = body.resume === true;
+  const wantResume = body.resume === true || body.approvePlan === true;
   const message = String(body.message || body.prompt || '').trim();
   if (!message && !wantResume) {
     return sendJson(res, 400, { error: 'message required (or resume:true)' });
@@ -34,9 +34,10 @@ module.exports = async function handler(req, res) {
       if (!thr) {
         return sendJson(res, 400, { error: 'threadId required to resume' });
       }
-      if (!thr.agentRun || thr.agentRun.status !== 'interrupted') {
+      const st = thr.agentRun && thr.agentRun.status;
+      if (st !== 'interrupted' && st !== 'awaiting_plan') {
         return sendJson(res, 409, {
-          error: 'No interrupted agent run to resume on this thread',
+          error: 'No interrupted/awaiting_plan agent run to resume on this thread',
           agentRun: thr.agentRun || null,
         });
       }
@@ -64,12 +65,15 @@ module.exports = async function handler(req, res) {
     const runOpts = {
       threadId: thr.id,
       workspaceId: ws.id,
-      userMessage: wantResume ? '' : message,
+      userMessage: wantResume && !message ? '' : message,
       history,
       model: body.model || thr.model,
       maxIterations: body.maxIterations || 25,
       resume: wantResume,
       budgetMs: body.budgetMs,
+      approvePlan: body.approvePlan === true,
+      briefingOverride: body.briefing || null,
+      skipPlanApproval: body.skipPlanApproval === true || body.approvePlan === true,
     };
 
     if (!wantStream) {
