@@ -73,9 +73,14 @@ When sandbox is missing or fails, the agent falls back to the `/tmp` allowlist r
 ## Agent quality (built-in)
 
 - **Token streaming** inside each agent step (Worker SSE → API SSE `type: token`)
+- **Structured tools** (JSON schema / function calls via Worker) with markdown ```tool fallback
 - **Auto skill routing** (coding / git / documents / …) without `use_skill`
 - **Tool-result summarization** + context compression for long builds
-- **Usage** on `thinking` / `text` / `done` events (`steps`, `toolsUsed`, token estimates)
+- **Checkpoints + Resume** — after each tool; soft time budget emits `interrupted`; POST `/api/agent` with `{ resume: true, threadId }`
+- **Server diffs** — `previousContent` on writes; `GET /api/workspace?action=diff&id=&path=`
+- **Usage history** — `lastUsage` + `usageHistory` on each thread
+- Optional **Vercel Sandbox** with post-command file re-collect into Firestore
+
 
 ## Wire the Chatre UI
 

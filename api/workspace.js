@@ -3,6 +3,7 @@
 const { handleCors } = require('../lib/cors');
 const { readBody, sendJson, requireAuth } = require('../lib/http');
 const workspace = require('../lib/workspace');
+const { unifiedDiff } = require('../lib/diff');
 
 module.exports = async function handler(req, res) {
   if (handleCors(req, res)) return;
@@ -36,6 +37,24 @@ module.exports = async function handler(req, res) {
         });
       }
 
+      if (action === 'diff') {
+        if (!id || !filePath) {
+          return sendJson(res, 400, { error: 'id and path required' });
+        }
+        const file = await workspace.getFile(id, filePath);
+        if (!file) return sendJson(res, 404, { error: 'File not found' });
+        const previous =
+          file.previousContent != null ? file.previousContent : '';
+        const current = file.content || '';
+        return sendJson(res, 200, {
+          path: filePath,
+          previous,
+          current,
+          unified: unifiedDiff(previous, current, filePath),
+          updatedAt: file.updatedAt || null,
+        });
+      }
+
       if (!id) {
         return sendJson(res, 400, {
           error: 'id required — pass workspace id from the active thread',
@@ -65,16 +84,29 @@ module.exports = async function handler(req, res) {
         });
         return sendJson(res, 200, {
           file,
-          previous: prev && prev.type === 'file' ? prev.content : null,
+          previous:
+            file._previousContent != null
+              ? file._previousContent
+              : prev && prev.type === 'file'
+                ? prev.content
+                : null,
         });
       }
       if (action === 'diff' && id) {
         const file = await workspace.getFile(id, body.path);
         if (!file) return sendJson(res, 404, { error: 'File not found' });
+        const previous =
+          body.previous != null
+            ? body.previous
+            : file.previousContent != null
+              ? file.previousContent
+              : '';
+        const current = file.content || '';
         return sendJson(res, 200, {
           path: body.path,
-          current: file.content || '',
-          previous: body.previous != null ? body.previous : null,
+          current,
+          previous,
+          unified: unifiedDiff(previous, current, body.path),
         });
       }
       const ws = await workspace.createWorkspace({ name: body.name });

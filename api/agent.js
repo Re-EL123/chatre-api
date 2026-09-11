@@ -20,13 +20,28 @@ module.exports = async function handler(req, res) {
     return sendJson(res, 400, { error: e.message });
   }
 
+  const wantResume = body.resume === true;
   const message = String(body.message || body.prompt || '').trim();
-  if (!message) return sendJson(res, 400, { error: 'message required' });
+  if (!message && !wantResume) {
+    return sendJson(res, 400, { error: 'message required (or resume:true)' });
+  }
 
   try {
     let thr = body.threadId ? await threads.getThread(body.threadId) : null;
     let ws = null;
-    if (!thr) {
+
+    if (wantResume) {
+      if (!thr) {
+        return sendJson(res, 400, { error: 'threadId required to resume' });
+      }
+      if (!thr.agentRun || thr.agentRun.status !== 'interrupted') {
+        return sendJson(res, 409, {
+          error: 'No interrupted agent run to resume on this thread',
+          agentRun: thr.agentRun || null,
+        });
+      }
+      ws = await workspace.ensureWorkspace(thr.workspaceId || body.workspaceId);
+    } else if (!thr) {
       ws = await workspace.ensureWorkspace(body.workspaceId);
       thr = await threads.createThread({
         title: message.slice(0, 80),
@@ -38,20 +53,29 @@ module.exports = async function handler(req, res) {
       if (!thr.workspaceId) {
         thr = await threads.updateThread(thr.id, { workspaceId: ws.id });
       }
+      if (body.model) {
+        thr = await threads.updateThread(thr.id, { model: body.model });
+      }
     }
 
     const history = await threads.listMessages(thr.id);
     const wantStream = body.stream !== false;
 
+    const runOpts = {
+      threadId: thr.id,
+      workspaceId: ws.id,
+      userMessage: wantResume ? '' : message,
+      history,
+      model: body.model || thr.model,
+      maxIterations: body.maxIterations || 20,
+      resume: wantResume,
+      budgetMs: body.budgetMs,
+    };
+
     if (!wantStream) {
       const events = [];
       const result = await runAgentLoop({
-        threadId: thr.id,
-        workspaceId: ws.id,
-        userMessage: message,
-        history,
-        model: body.model,
-        maxIterations: body.maxIterations || 20,
+        ...runOpts,
         emit: (ev) => events.push(ev),
       });
       return sendJson(res, 200, {
@@ -59,6 +83,9 @@ module.exports = async function handler(req, res) {
         workspaceId: ws.id,
         response: result.response,
         steps: result.steps,
+        status: result.status || 'done',
+        runId: result.runId,
+        usage: result.usage,
         events,
       });
     }
@@ -79,15 +106,11 @@ module.exports = async function handler(req, res) {
       type: 'start',
       threadId: thr.id,
       workspaceId: ws.id,
+      resume: wantResume,
     });
 
     await runAgentLoop({
-      threadId: thr.id,
-      workspaceId: ws.id,
-      userMessage: message,
-      history,
-      model: body.model,
-      maxIterations: body.maxIterations || 20,
+      ...runOpts,
       emit: send,
     });
 
