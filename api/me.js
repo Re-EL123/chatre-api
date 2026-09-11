@@ -13,11 +13,24 @@ module.exports = async function handler(req, res) {
   if (!auth) return;
 
   const url = new URL(req.url, 'http://localhost');
-  const byok = url.pathname.endsWith('/byok') || url.searchParams.get('action') === 'byok';
+  const action = String(url.searchParams.get('action') || '').toLowerCase();
+  const byok =
+    url.pathname.endsWith('/byok') || action === 'byok';
+  const memory = action === 'memory' || url.pathname.endsWith('/memory');
+  const schedules =
+    action === 'schedules' ||
+    action === 'schedule' ||
+    url.pathname.endsWith('/schedules');
 
   try {
     if (byok) {
       return handleByok(req, res, auth, url);
+    }
+    if (memory) {
+      return handleMemory(req, res, auth, url);
+    }
+    if (schedules) {
+      return handleSchedules(req, res, auth, url);
     }
 
     if (req.method === 'GET') {
@@ -145,6 +158,74 @@ async function handleByok(req, res, auth, url) {
       byok: users.byokConfiguredFlags(byokDoc),
       encryptionReady: encryptionConfigured(),
     });
+  }
+
+  return sendJson(res, 405, { error: 'Method not allowed' });
+}
+
+async function handleMemory(req, res, auth, url) {
+  const userMemory = require('../lib/user-memory');
+  const key = url.searchParams.get('key');
+
+  if (req.method === 'GET') {
+    const result = await userMemory.memoryGet(auth.uid, key || undefined);
+    return sendJson(res, result.ok ? 200 : 400, result);
+  }
+
+  if (req.method === 'PUT' || req.method === 'POST') {
+    const body = await readBody(req);
+    const result = await userMemory.memorySet(
+      auth.uid,
+      body.key || key,
+      body.value,
+    );
+    return sendJson(res, result.ok ? 200 : 400, result);
+  }
+
+  if (req.method === 'DELETE') {
+    const result = await userMemory.memoryDelete(auth.uid, key);
+    return sendJson(res, result.ok ? 200 : 400, result);
+  }
+
+  return sendJson(res, 405, { error: 'Method not allowed' });
+}
+
+async function handleSchedules(req, res, auth, url) {
+  const userMemory = require('../lib/user-memory');
+  const op = String(url.searchParams.get('op') || '').toLowerCase();
+
+  if (req.method === 'GET') {
+    if (op === 'due') {
+      const result = await userMemory.scheduleDue(auth.uid);
+      return sendJson(res, result.ok ? 200 : 400, result);
+    }
+    const result = await userMemory.scheduleList(auth.uid);
+    return sendJson(res, result.ok ? 200 : 400, result);
+  }
+
+  if (req.method === 'POST' || req.method === 'PUT') {
+    const body = await readBody(req);
+    if (body.op === 'due' || op === 'due') {
+      const result = await userMemory.scheduleDue(auth.uid);
+      return sendJson(res, result.ok ? 200 : 400, result);
+    }
+    if (body.op === 'cancel' || op === 'cancel') {
+      const result = await userMemory.scheduleCancel(
+        auth.uid,
+        body.id || url.searchParams.get('id'),
+      );
+      return sendJson(res, result.ok ? 200 : 400, result);
+    }
+    const result = await userMemory.scheduleCreate(auth.uid, body);
+    return sendJson(res, result.ok ? 200 : 400, result);
+  }
+
+  if (req.method === 'DELETE') {
+    const result = await userMemory.scheduleCancel(
+      auth.uid,
+      url.searchParams.get('id'),
+    );
+    return sendJson(res, result.ok ? 200 : 400, result);
   }
 
   return sendJson(res, 405, { error: 'Method not allowed' });
