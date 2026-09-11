@@ -33,6 +33,7 @@ module.exports = async function handler(req, res) {
       backend: getBackend(),
       projectId: process.env.FIREBASE_PROJECT_ID || 're-el-eed0d',
       workerConfigured: !!process.env.CHATRE_WORKER_URL,
+      browserTools: !!process.env.CHATRE_WORKER_URL,
       sandbox: process.env.USE_VERCEL_SANDBOX === '1',
       time: new Date().toISOString(),
     });
