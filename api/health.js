@@ -1,7 +1,7 @@
 'use strict';
 
 const { handleCors } = require('../lib/cors');
-const { sendJson, authorized } = require('../lib/http');
+const { sendJson, resolveAuth } = require('../lib/http');
 const { getBackend, SITE_ID } = require('../lib/firebase');
 
 module.exports = async function handler(req, res) {
@@ -14,7 +14,8 @@ module.exports = async function handler(req, res) {
   const wantAuth = url.searchParams.get('auth') === '1';
 
   if (wantAuth) {
-    if (!authorized(req)) {
+    const auth = await resolveAuth(req);
+    if (!auth) {
       return sendJson(res, 401, {
         ok: false,
         connected: false,
@@ -28,6 +29,8 @@ module.exports = async function handler(req, res) {
       ok: true,
       connected: true,
       status: 'connected',
+      authKind: auth.kind,
+      uid: auth.uid || null,
       service: 'chatre-api',
       siteId: SITE_ID,
       backend: getBackend(),

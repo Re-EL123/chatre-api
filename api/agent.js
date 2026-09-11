@@ -8,7 +8,11 @@ const { runAgentLoop } = require('../lib/agent');
 
 module.exports = async function handler(req, res) {
   if (handleCors(req, res)) return;
-  if (!requireAuth(req, res)) return;
+  const auth = await requireAuth(req, res);
+  if (!auth) return;
+  if (auth.kind !== 'user') {
+    return sendJson(res, 403, { error: 'Sign in required to run the agent' });
+  }
   if (req.method !== 'POST') {
     return sendJson(res, 405, { error: 'Method not allowed' });
   }
@@ -30,6 +34,14 @@ module.exports = async function handler(req, res) {
     let thr = body.threadId ? await threads.getThread(body.threadId) : null;
     let ws = null;
 
+    function denyThread() {
+      return sendJson(res, 403, { error: 'Thread access denied' });
+    }
+    if (thr && thr.userId && thr.userId !== auth.uid) return denyThread();
+    if (thr && !thr.userId) {
+      return sendJson(res, 404, { error: 'Thread not found' });
+    }
+
     if (wantResume) {
       if (!thr) {
         return sendJson(res, 400, { error: 'threadId required to resume' });
@@ -42,21 +54,30 @@ module.exports = async function handler(req, res) {
           agentRun: thr.agentRun || null,
         });
       }
-      ws = await workspace.ensureWorkspace(thr.workspaceId || body.workspaceId);
+      ws = await workspace.ensureWorkspace(thr.workspaceId || body.workspaceId, {
+        userId: auth.uid,
+      });
     } else if (!thr) {
-      ws = await workspace.ensureWorkspace(body.workspaceId);
+      ws = await workspace.ensureWorkspace(body.workspaceId, { userId: auth.uid });
       thr = await threads.createThread({
         title: message.slice(0, 80),
         model: body.model || '',
+        provider: body.provider || '',
         workspaceId: ws.id,
+        userId: auth.uid,
       });
     } else {
-      ws = await workspace.ensureWorkspace(thr.workspaceId || body.workspaceId);
+      ws = await workspace.ensureWorkspace(thr.workspaceId || body.workspaceId, {
+        userId: auth.uid,
+      });
       if (!thr.workspaceId) {
         thr = await threads.updateThread(thr.id, { workspaceId: ws.id });
       }
       if (body.model) {
-        thr = await threads.updateThread(thr.id, { model: body.model });
+        thr = await threads.updateThread(thr.id, {
+          model: body.model,
+          provider: body.provider || thr.provider,
+        });
       }
     }
 
@@ -69,6 +90,7 @@ module.exports = async function handler(req, res) {
       userMessage: wantResume && !message ? '' : message,
       history,
       model: body.model || thr.model,
+      userId: auth.uid,
       maxIterations: body.maxIterations || 25,
       resume: wantResume,
       budgetMs: body.budgetMs,

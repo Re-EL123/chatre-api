@@ -21,16 +21,25 @@ Keep this repo at **`/home/akani/Documents/chatre-api`** (sibling to `chatre1`).
 | GET/POST/DELETE | `/api/workspace` | Workspace files (`?action=export` for ZIP payload) |
 | POST | `/api/exec` | Run allowlisted commands |
 | POST | `/api/agent` | Streaming (SSE) or JSON agent loop (token deltas per step) |
+| GET/PATCH | `/api/me` | User profile + defaults; `?action=byok` for BYOK keys |
+| GET | `/api/models` | Merged Chatre + BYOK model catalog for the signed-in user |
 
-Auth: `Authorization: Bearer <CHATRE_API_TOKEN>` or `x-chatre-key: <CHATRE_API_TOKEN>`.
+**Auth**
+
+- **Users:** `Authorization: Bearer <Firebase ID token>` (email/password or Google via Firebase Auth). Threads/workspaces are scoped by `userId`.
+- **Service:** `Authorization: Bearer <CHATRE_API_TOKEN>` or `x-chatre-key` — companion / admin only (not for listing user threads).
+
+**BYOK:** set `BYOK_ENCRYPTION_KEY` (32+ byte secret). Keys are AES-256-GCM encrypted in Firestore; API never returns plaintext after save. Providers: OpenRouter, Anthropic, OpenAI, Google. Default models remain Chatre Workers AI (`@cf/...`).
 
 ## Firestore layout
 
 ```
 sites/chatre/
-  threads/{threadId}
+  users/{uid}
+  users/{uid}/secrets/byok
+  threads/{threadId}          # + userId
   threads/{threadId}/messages/{messageId}
-  workspaces/{workspaceId}
+  workspaces/{workspaceId}    # + userId
   workspaces/{workspaceId}/files/{base64url(path)}
 ```
 

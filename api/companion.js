@@ -7,7 +7,8 @@ const companion = require('../lib/companion');
 module.exports = async function handler(req, res) {
   if (handleCors(req, res)) return;
   applyCors(res);
-  if (!requireAuth(req, res)) return;
+  const auth = await requireAuth(req, res);
+  if (!auth) return;
 
   if (req.method === 'GET') {
     const id = req.query && (req.query.id || req.query.companionId);

@@ -7,7 +7,11 @@ const { runInTempWorkspace } = require('../lib/shell');
 
 module.exports = async function handler(req, res) {
   if (handleCors(req, res)) return;
-  if (!requireAuth(req, res)) return;
+  const auth = await requireAuth(req, res);
+  if (!auth) return;
+  if (auth.kind !== 'user') {
+    return sendJson(res, 403, { error: 'Sign in required' });
+  }
   if (req.method !== 'POST') {
     return sendJson(res, 405, { error: 'Method not allowed' });
   }
@@ -20,7 +24,10 @@ module.exports = async function handler(req, res) {
     let ws = body.workspaceId
       ? await workspace.getWorkspace(body.workspaceId)
       : null;
-    if (!ws) ws = await workspace.ensureWorkspace(body.workspaceId);
+    if (ws && ws.userId && ws.userId !== auth.uid) {
+      return sendJson(res, 403, { error: 'Workspace access denied' });
+    }
+    if (!ws) ws = await workspace.ensureWorkspace(body.workspaceId, { userId: auth.uid });
 
     const files = (await workspace.listFiles(ws.id)) || {};
     const result = runInTempWorkspace({
