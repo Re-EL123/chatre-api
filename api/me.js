@@ -3,7 +3,7 @@
 const { handleCors } = require('../lib/cors');
 const { readBody, sendJson, requireUser } = require('../lib/http');
 const users = require('../lib/users');
-const { encrypt, decrypt, encryptionConfigured } = require('../lib/crypto-secrets');
+const { encrypt, encryptionConfigured } = require('../lib/crypto-secrets');
 
 const PROVIDERS = ['openrouter', 'anthropic', 'openai', 'google'];
 
@@ -79,8 +79,30 @@ async function handleByok(req, res, auth, url) {
     });
   }
 
+  const op = String(url.searchParams.get('op') || '').toLowerCase();
+
+  if (
+    (req.method === 'POST' || req.method === 'PUT') &&
+    (op === 'test' || op === 'test_connection')
+  ) {
+    const body = await readBody(req);
+    const provider = String(body.provider || url.searchParams.get('provider') || '')
+      .toLowerCase();
+    const { testByokProvider } = require('../lib/byok-test');
+    const result = await testByokProvider(auth.uid, provider);
+    return sendJson(res, result.ok ? 200 : 400, result);
+  }
+
   if (req.method === 'PUT' || req.method === 'POST') {
     const body = await readBody(req);
+    if (body.action === 'test' || body.op === 'test') {
+      const { testByokProvider } = require('../lib/byok-test');
+      const result = await testByokProvider(
+        auth.uid,
+        String(body.provider || '').toLowerCase(),
+      );
+      return sendJson(res, result.ok ? 200 : 400, result);
+    }
     const provider = String(body.provider || '').toLowerCase();
     const apiKey = String(body.apiKey || body.key || '').trim();
     if (!PROVIDERS.includes(provider)) {
@@ -117,7 +139,6 @@ async function handleByok(req, res, auth, url) {
     });
   }
 
-  // Optional: test key by decrypting presence only
   if (req.method === 'GET') {
     const byokDoc = await users.getByokDoc(auth.uid);
     return sendJson(res, 200, {
@@ -128,6 +149,3 @@ async function handleByok(req, res, auth, url) {
 
   return sendJson(res, 405, { error: 'Method not allowed' });
 }
-
-// silence unused decrypt in this file (used by providers)
-void decrypt;
