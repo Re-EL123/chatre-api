@@ -32,7 +32,7 @@ const OPENROUTER_SUGGESTIONS = [
   'openai/gpt-4o',
   'anthropic/claude-sonnet-4',
   'anthropic/claude-3.5-sonnet',
-  'google/gemini-2.0-flash-001',
+  'google/gemini-3.6-flash',
   'meta-llama/llama-3.3-70b-instruct',
 ];
 
@@ -45,9 +45,9 @@ const ANTHROPIC_SUGGESTIONS = [
 const OPENAI_SUGGESTIONS = ['gpt-4o-mini', 'gpt-4o', 'o4-mini'];
 
 const GOOGLE_SUGGESTIONS = [
-  'gemini-2.0-flash',
-  'gemini-1.5-pro',
-  'gemini-1.5-flash',
+  'gemini-3.6-flash',
+  'gemini-3.5-flash',
+  'gemini-3.5-flash-lite',
 ];
 
 module.exports = async function handler(req, res) {
