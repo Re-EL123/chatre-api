@@ -21,7 +21,7 @@ Keep this repo at **`/home/akani/Documents/chatre-api`** (sibling to `chatre1`).
 | GET/POST/DELETE | `/api/workspace` | Workspace files (`?action=export` for ZIP payload) |
 | POST | `/api/exec` | Run allowlisted commands |
 | POST | `/api/agent` | Streaming (SSE) or JSON agent loop (token deltas per step) |
-| GET/PATCH | `/api/me` | User profile + defaults; `?action=byok` for BYOK keys |
+| GET/PATCH | `/api/me` | User profile + defaults; `?action=byok` for BYOK keys; `?action=connectors` for GitHub/Vercel/Supabase/Firebase |
 | GET | `/api/models` | Merged Chatre + BYOK model catalog for the signed-in user |
 
 **Auth**
@@ -31,12 +31,15 @@ Keep this repo at **`/home/akani/Documents/chatre-api`** (sibling to `chatre1`).
 
 **BYOK:** set `BYOK_ENCRYPTION_KEY` (32+ byte secret). Keys are AES-256-GCM encrypted in Firestore; API never returns plaintext after save. Providers: OpenRouter, Anthropic, OpenAI, Google. Default models remain Chatre Workers AI (`@cf/...`).
 
+**Integrations:** same encryption key stores user connectors under `users/{uid}/secrets/connectors` (github, vercel, supabase, firebase PATs/tokens). Agent tools: `list_connectors`, `connector_status`, `connector_request` (host-allowlisted HTTPS only). Never returns plaintext tokens.
+
 ## Firestore layout
 
 ```
 sites/chatre/
   users/{uid}
   users/{uid}/secrets/byok
+  users/{uid}/secrets/connectors
   threads/{threadId}          # + userId
   threads/{threadId}/messages/{messageId}
   workspaces/{workspaceId}    # + userId

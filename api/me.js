@@ -26,6 +26,9 @@ module.exports = async function handler(req, res) {
     if (byok) {
       return handleByok(req, res, auth, url);
     }
+    if (action === 'connectors' || action === 'connector' || url.pathname.endsWith('/connectors')) {
+      return handleConnectors(req, res, auth, url);
+    }
     if (memory) {
       return handleMemory(req, res, auth, url);
     }
@@ -36,6 +39,8 @@ module.exports = async function handler(req, res) {
     if (req.method === 'GET') {
       const profile = await users.ensureUser(auth.uid, auth.email);
       const byokDoc = await users.getByokDoc(auth.uid);
+      const connectorsDoc = await users.getConnectorsDoc(auth.uid);
+      const { listStatus } = require('../lib/connectors');
       return sendJson(res, 200, {
         user: {
           id: profile.id,
@@ -50,6 +55,7 @@ module.exports = async function handler(req, res) {
             preferByok: true,
           },
           byok: users.byokConfiguredFlags(byokDoc),
+          connectors: listStatus(connectorsDoc),
           encryptionReady: encryptionConfigured(),
         },
       });
@@ -177,6 +183,114 @@ async function handleByok(req, res, auth, url) {
     return sendJson(res, 200, {
       byok: users.byokConfiguredFlags(byokDoc),
       encryptionReady: encryptionConfigured(),
+    });
+  }
+
+  return sendJson(res, 405, { error: 'Method not allowed' });
+}
+
+async function handleConnectors(req, res, auth, url) {
+  if (!encryptionConfigured()) {
+    return sendJson(res, 503, {
+      error: 'BYOK_ENCRYPTION_KEY is not configured on the server (used to encrypt connectors)',
+    });
+  }
+
+  const {
+    CONNECTOR_PROVIDERS,
+    validateConnectorToken,
+    testConnector,
+    listStatus,
+  } = require('../lib/connectors');
+  const op = String(url.searchParams.get('op') || '').toLowerCase();
+
+  if (
+    (req.method === 'POST' || req.method === 'PUT') &&
+    (op === 'test' || op === 'test_connection')
+  ) {
+    const body = await readBody(req);
+    const provider = String(body.provider || url.searchParams.get('provider') || '')
+      .toLowerCase();
+    const result = await testConnector(
+      auth.uid,
+      provider,
+      body.token || body.apiKey || body.key || undefined,
+      body.meta || undefined,
+    );
+    return sendJson(res, result.ok ? 200 : 400, result);
+  }
+
+  if (req.method === 'PUT' || req.method === 'POST') {
+    const body = await readBody(req);
+    if (body.action === 'test' || body.op === 'test') {
+      const result = await testConnector(
+        auth.uid,
+        String(body.provider || '').toLowerCase(),
+        body.token || body.apiKey || body.key || undefined,
+        body.meta || undefined,
+      );
+      return sendJson(res, result.ok ? 200 : 400, result);
+    }
+    const provider = String(body.provider || '').toLowerCase();
+    const meta = body.meta && typeof body.meta === 'object' ? body.meta : {};
+    if (body.projectUrl) meta.projectUrl = String(body.projectUrl);
+    if (body.projectId) meta.projectId = String(body.projectId);
+    if (body.label) meta.label = String(body.label).slice(0, 80);
+    meta.kind = meta.kind || 'token';
+
+    const checked = validateConnectorToken(
+      provider,
+      body.token || body.apiKey || body.key || '',
+      meta,
+    );
+    if (!checked.ok) {
+      return sendJson(res, 400, { error: checked.error });
+    }
+
+    // Probe before save when possible
+    const probe = await testConnector(auth.uid, provider, checked.token, meta);
+    if (!probe.ok) {
+      return sendJson(res, 400, { error: probe.error || 'Connector test failed' });
+    }
+
+    await users.ensureUser(auth.uid, auth.email);
+    const blob = encrypt(checked.token);
+    blob.meta = Object.assign({}, meta, probe.meta || {}, {
+      login: probe.login || meta.login || null,
+    });
+    blob.updatedAt = new Date().toISOString();
+    await users.setConnectorProvider(auth.uid, provider, blob);
+    const doc = await users.getConnectorsDoc(auth.uid);
+    return sendJson(res, 200, {
+      ok: true,
+      provider,
+      login: probe.login,
+      connectors: listStatus(doc),
+    });
+  }
+
+  if (req.method === 'DELETE') {
+    const provider = String(url.searchParams.get('provider') || '').toLowerCase();
+    if (!CONNECTOR_PROVIDERS.includes(provider)) {
+      return sendJson(res, 400, {
+        error: 'provider must be one of: ' + CONNECTOR_PROVIDERS.join(', '),
+      });
+    }
+    await users.deleteConnectorProvider(auth.uid, provider);
+    const doc = await users.getConnectorsDoc(auth.uid);
+    return sendJson(res, 200, {
+      ok: true,
+      provider,
+      connectors: listStatus(doc),
+    });
+  }
+
+  if (req.method === 'GET') {
+    const doc = await users.getConnectorsDoc(auth.uid);
+    return sendJson(res, 200, {
+      connectors: listStatus(doc),
+      encryptionReady: encryptionConfigured(),
+      providers: CONNECTOR_PROVIDERS,
     });
   }
 
