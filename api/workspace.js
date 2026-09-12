@@ -138,6 +138,43 @@ module.exports = async function handler(req, res) {
           unified: unifiedDiff(previous, current, body.path),
         });
       }
+      if (action === 'activeProject' && id) {
+        const ws = await workspace.getWorkspace(id);
+        const gate = assertWs(ws, auth);
+        if (!gate.ok) return sendJson(res, gate.status, { error: gate.error });
+        const slug = String(body.slug || body.activeProject || '')
+          .replace(/[^a-z0-9._-]/gi, '-')
+          .replace(/^-+|-+$/g, '')
+          .slice(0, 48);
+        if (!slug) {
+          return sendJson(res, 400, { error: 'slug required' });
+        }
+        const root = '/home/user/projects/' + slug;
+        const files = (await workspace.listFiles(id)) || {};
+        const projects = Object.assign({}, ws.projects || {}, {
+          [slug]: Object.assign({}, (ws.projects && ws.projects[slug]) || {}, {
+            slug,
+            root,
+            agentsMd: root + '/AGENTS.md',
+            hasAgentsMd: !!(
+              files[root + '/AGENTS.md'] &&
+              files[root + '/AGENTS.md'].type === 'file'
+            ),
+            lastActiveAt: new Date().toISOString(),
+          }),
+        });
+        await workspace.saveSnapshot(id, {
+          cwd: root,
+          projects,
+          activeProject: slug,
+        });
+        const updated = await workspace.getWorkspace(id);
+        return sendJson(res, 200, {
+          workspace: updated,
+          activeProject: slug,
+          root,
+        });
+      }
       const ws = await workspace.createWorkspace({
         name: body.name,
         userId: auth.uid,
