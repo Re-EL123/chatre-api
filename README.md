@@ -84,7 +84,7 @@ When sandbox is missing or fails, the agent falls back to the `/tmp` allowlist r
 - **Universal computer-use** — browser_* tools (via Worker Browser Rendering), http_request, shell, files, git
 - **Token streaming** inside each agent step (Worker SSE → API SSE `type: token`)
 - **Structured tools** (JSON schema / function calls via Worker) with markdown ```tool fallback
-- **Auto skill routing** (coding / browser / computer / git / …) without `use_skill`
+- **Auto skill routing** (coding / design / web_designs / dogfood / debugging / …) without `use_skill`
 - **Tool-result summarization** + context compression for long builds
 - **Checkpoints + Resume** — after each tool; soft time budget emits `interrupted`; POST `/api/agent` with `{ resume: true, threadId }`
 - **Server diffs** — `previousContent` on writes; `GET /api/workspace?action=diff&id=&path=`
