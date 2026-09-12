@@ -245,6 +245,61 @@ case_('diagnostics payload shape on lastDiagnostics', () => {
   assert.strictEqual(lastDiagnostics.ok, false);
 });
 
+
+case_('parseOwnerRepo github url', () => {
+  const GithubPr = require('../lib/github-pr');
+  const a = GithubPr.parseOwnerRepo('https://github.com/acme/hello-world.git');
+  assert.strictEqual(a.owner, 'acme');
+  assert.strictEqual(a.repo, 'hello-world');
+  const b = GithubPr.parseOwnerRepo('acme/hello-world');
+  assert.strictEqual(b.owner, 'acme');
+});
+
+case_('PR acceptance and proof fields', () => {
+  const ctx = {
+    taskType: 'git',
+    lastPr: {
+      number: 12,
+      html_url: 'https://github.com/acme/app/pull/12',
+      title: 'Fix',
+    },
+    ciOk: true,
+    lastCi: { ok: true, ref: 'main' },
+    deliverySuccess: true,
+  };
+  const tests = Delivery.normalizeAcceptanceTests([
+    'pull request opened',
+    'CI green',
+  ]);
+  const ev = Delivery.evaluateAcceptance(ctx, tests);
+  assert(ev.ok, JSON.stringify(ev.results));
+  const proof = Delivery.buildDoneProof(ctx, {});
+  assert.strictEqual(proof.prNumber, 12);
+  assert.strictEqual(proof.ciOk, true);
+  assert(/pull\/12/.test(proof.prUrl));
+});
+
+case_('CI acceptance fails without ciOk', () => {
+  const ctx = { taskType: 'build', ciOk: false };
+  const tests = Delivery.normalizeAcceptanceTests(['CI green']);
+  const ev = Delivery.evaluateAcceptance(ctx, tests);
+  assert.strictEqual(ev.ok, false);
+});
+
+case_('org policy denies create_pull_request', () => {
+  process.env.CHATRE_ORG_POLICY = JSON.stringify({
+    denyTools: ['create_pull_request'],
+  });
+  const OrgPolicy = require('../lib/org-policy');
+  // clear cache by re-require - loadOrgPolicy reads env each call
+  const check = OrgPolicy.checkToolPolicy('create_pull_request');
+  assert.strictEqual(check.ok, false);
+  assert(check.denied);
+  delete process.env.CHATRE_ORG_POLICY;
+  const check2 = OrgPolicy.checkToolPolicy('create_pull_request');
+  assert.strictEqual(check2.ok, true);
+});
+
 const failed = results.filter((r) => !r.ok);
 console.log('\n' + (results.length - failed.length) + '/' + results.length + ' passed');
 if (failed.length) {
