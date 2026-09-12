@@ -16,10 +16,16 @@ Do not invent file downloads or tool results.`;
 function stripSystem(messages) {
   return (Array.isArray(messages) ? messages : [])
     .filter((m) => m && m.role !== 'system')
-    .map((m) => ({
-      role: m.role === 'assistant' ? 'assistant' : 'user',
-      content: String(m.content || ''),
-    }));
+    .map((m) => {
+      const out = {
+        role: m.role === 'assistant' ? 'assistant' : 'user',
+        content: String(m.content || ''),
+      };
+      if (m.reasoning_details) out.reasoning_details = m.reasoning_details;
+      if (m.reasoning) out.reasoning = m.reasoning;
+      if (m.reasoning_content) out.reasoning_content = m.reasoning_content;
+      return out;
+    });
 }
 
 module.exports = async function handler(req, res) {
@@ -114,7 +120,7 @@ module.exports = async function handler(req, res) {
           'data: ' +
             JSON.stringify({
               error:
-                'Model returned an empty response. For Gemini 3.x, raise max tokens or retry — thinking can consume the output budget.',
+                'Model returned an empty response. For OpenRouter Gemini / reasoning models, raise max tokens or retry — thinking can consume the output budget.',
             }) +
             '\n\n',
         );
@@ -125,6 +131,19 @@ module.exports = async function handler(req, res) {
       const chunk = 48;
       for (let i = 0; i < text.length; i += chunk) {
         sendDelta(text.slice(i, i + chunk));
+      }
+      // Preserve reasoning metadata for clients that store chat history (Gemini via OR)
+      if (data.reasoning_details || data.reasoning) {
+        res.write(
+          'data: ' +
+            JSON.stringify({
+              meta: {
+                reasoning_details: data.reasoning_details || null,
+                reasoning: data.reasoning || null,
+              },
+            }) +
+            '\n\n',
+        );
       }
     }
 
