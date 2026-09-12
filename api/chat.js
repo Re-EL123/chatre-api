@@ -109,6 +109,19 @@ module.exports = async function handler(req, res) {
         mode: 'chat',
       });
       const text = data.response || data.text || '';
+      if (!String(text).trim()) {
+        res.write(
+          'data: ' +
+            JSON.stringify({
+              error:
+                'Model returned an empty response. For Gemini 3.x, raise max tokens or retry — thinking can consume the output budget.',
+            }) +
+            '\n\n',
+        );
+        res.write('data: [DONE]\n\n');
+        res.end();
+        return;
+      }
       const chunk = 48;
       for (let i = 0; i < text.length; i += chunk) {
         sendDelta(text.slice(i, i + chunk));
