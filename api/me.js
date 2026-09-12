@@ -97,6 +97,8 @@ async function handleByok(req, res, auth, url) {
   }
 
   const op = String(url.searchParams.get('op') || '').toLowerCase();
+  const { testByokProvider, normalizeApiKey, validateProviderKey, PROVIDERS: BYOK_PROVIDERS } =
+    require('../lib/byok-test');
 
   if (
     (req.method === 'POST' || req.method === 'PUT') &&
@@ -105,32 +107,35 @@ async function handleByok(req, res, auth, url) {
     const body = await readBody(req);
     const provider = String(body.provider || url.searchParams.get('provider') || '')
       .toLowerCase();
-    const { testByokProvider } = require('../lib/byok-test');
-    const result = await testByokProvider(auth.uid, provider);
+    const override = body.apiKey || body.key || '';
+    const result = await testByokProvider(auth.uid, provider, override || undefined);
     return sendJson(res, result.ok ? 200 : 400, result);
   }
 
   if (req.method === 'PUT' || req.method === 'POST') {
     const body = await readBody(req);
     if (body.action === 'test' || body.op === 'test') {
-      const { testByokProvider } = require('../lib/byok-test');
       const result = await testByokProvider(
         auth.uid,
         String(body.provider || '').toLowerCase(),
+        body.apiKey || body.key || undefined,
       );
       return sendJson(res, result.ok ? 200 : 400, result);
     }
     const provider = String(body.provider || '').toLowerCase();
-    const apiKey = String(body.apiKey || body.key || '').trim();
-    if (!PROVIDERS.includes(provider)) {
+    const apiKey = normalizeApiKey(body.apiKey || body.key || '');
+    if (!BYOK_PROVIDERS.includes(provider)) {
       return sendJson(res, 400, {
-        error: 'provider must be one of: ' + PROVIDERS.join(', '),
+        error: 'provider must be one of: ' + BYOK_PROVIDERS.join(', '),
       });
     }
-    if (!apiKey || apiKey.length < 8) {
-      return sendJson(res, 400, { error: 'apiKey required' });
+    const checked = validateProviderKey(provider, apiKey);
+    if (!checked.ok) {
+      return sendJson(res, 400, { error: checked.error });
     }
-    const blob = encrypt(apiKey);
+    // Ensure Firestore user doc exists before writing secrets.
+    await users.ensureUser(auth.uid, auth.email);
+    const blob = encrypt(checked.key);
     await users.setByokProvider(auth.uid, provider, blob);
     const byokDoc = await users.getByokDoc(auth.uid);
     return sendJson(res, 200, {
