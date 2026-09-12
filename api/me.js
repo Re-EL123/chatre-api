@@ -46,6 +46,8 @@ module.exports = async function handler(req, res) {
           defaults: profile.defaults || {
             provider: 'chatre',
             model: users.DEFAULT_MODEL,
+            autonomy: 'assist',
+            preferByok: true,
           },
           byok: users.byokConfiguredFlags(byokDoc),
           encryptionReady: encryptionConfigured(),
@@ -64,6 +66,15 @@ module.exports = async function handler(req, res) {
         }
         if (body.defaults.model) {
           patch.defaults.model = String(body.defaults.model);
+        }
+        if (body.defaults.autonomy) {
+          const a = String(body.defaults.autonomy).toLowerCase();
+          if (['ask', 'assist', 'autopilot'].indexOf(a) >= 0) {
+            patch.defaults.autonomy = a;
+          }
+        }
+        if (body.defaults.preferByok != null) {
+          patch.defaults.preferByok = body.defaults.preferByok === true;
         }
       }
       const profile = await users.updateUser(auth.uid, patch);

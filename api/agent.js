@@ -4,6 +4,11 @@ const { handleCors, applyCors } = require('../lib/cors');
 const { readBody, sendJson, requireAuth } = require('../lib/http');
 const threads = require('../lib/threads');
 const workspace = require('../lib/workspace');
+const users = require('../lib/users');
+const {
+  normalizeAutonomy,
+  preferByokModel,
+} = require('../lib/autonomy');
 const { runAgentLoop } = require('../lib/agent');
 
 module.exports = async function handler(req, res) {
@@ -47,10 +52,16 @@ module.exports = async function handler(req, res) {
         return sendJson(res, 400, { error: 'threadId required to resume' });
       }
       const st = thr.agentRun && thr.agentRun.status;
-      if (st !== 'interrupted' && st !== 'awaiting_plan' && st !== 'awaiting_login') {
+      if (
+        st !== 'interrupted' &&
+        st !== 'awaiting_plan' &&
+        st !== 'awaiting_login' &&
+        st !== 'awaiting_approval' &&
+        st !== 'awaiting_shell'
+      ) {
         return sendJson(res, 409, {
           error:
-            'No interrupted/awaiting_plan/awaiting_login agent run to resume on this thread',
+            'No interrupted/awaiting_* agent run to resume on this thread',
           agentRun: thr.agentRun || null,
         });
       }
@@ -84,12 +95,26 @@ module.exports = async function handler(req, res) {
     const history = await threads.listMessages(thr.id);
     const wantStream = body.stream !== false;
 
+    const profile = await users.ensureUser(auth.uid, auth.email || '');
+    const byokDoc = await users.getByokDoc(auth.uid);
+    const byokFlags = users.byokConfiguredFlags(byokDoc);
+    const autonomy = normalizeAutonomy(
+      body.autonomy ||
+        (profile.defaults && profile.defaults.autonomy) ||
+        'assist',
+    );
+    const resolvedModel = preferByokModel(
+      body.model || thr.model || (profile.defaults && profile.defaults.model),
+      byokFlags,
+      profile.defaults || {},
+    );
+
     const runOpts = {
       threadId: thr.id,
       workspaceId: ws.id,
       userMessage: wantResume && !message ? '' : message,
       history,
-      model: body.model || thr.model,
+      model: resolvedModel,
       userId: auth.uid,
       maxIterations: body.maxIterations || 25,
       resume: wantResume,
@@ -97,6 +122,9 @@ module.exports = async function handler(req, res) {
       approvePlan: body.approvePlan === true,
       briefingOverride: body.briefing || null,
       skipPlanApproval: body.skipPlanApproval === true || body.approvePlan === true,
+      autonomy,
+      approvedTools: body.approvedTools || null,
+      autoResumeCount: Number(body.autoResumeCount) || 0,
     };
 
     if (!wantStream) {
