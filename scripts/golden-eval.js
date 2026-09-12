@@ -144,6 +144,60 @@ case_('document gate requires delivery', () => {
   assert(gate && /ENTERPRISE GATE/i.test(gate));
 });
 
+
+case_('repo gate requires tests when ctx.repo set', () => {
+  const ctx = {
+    taskType: 'build',
+    deliverySuccess: true,
+    previewOk: true,
+    testsOk: false,
+    repo: { mode: 'git', branch: 'main', root: '/home/user/projects/demo' },
+    filesTouched: ['/home/user/projects/demo/index.js'],
+    files: {
+      '/home/user/projects/demo/package.json': {
+        path: '/home/user/projects/demo/package.json',
+        type: 'file',
+        content: JSON.stringify({ scripts: { test: 'node -e "process.exit(0)"' } }),
+      },
+      '/home/user/projects/demo/AGENTS.md': {
+        path: '/home/user/projects/demo/AGENTS.md',
+        type: 'file',
+        content: '# agents',
+      },
+    },
+  };
+  const gate = Delivery.enterpriseDoneGate(ctx, { forcePlan: true, acceptance: [] });
+  assert(gate && /run_tests|testsOk/i.test(gate));
+  ctx.testsOk = true;
+  ctx.lastTest = { ok: true, kind: 'npm', text: 'passed' };
+  const gate2 = Delivery.enterpriseDoneGate(ctx, { forcePlan: true, acceptance: [] });
+  assert.strictEqual(gate2, null);
+  const proof = Delivery.buildDoneProof(ctx, {});
+  assert.strictEqual(proof.testsOk, true);
+  assert.strictEqual(proof.branch, 'main');
+});
+
+case_('search/rg path join helpers', () => {
+  const RepoMode = require('../lib/repo-mode');
+  const root = '/tmp/chatre-rg-test-root';
+  const abs = RepoMode.virtToAbs(root, '/home/user/projects/demo');
+  assert(abs.indexOf(root) === 0);
+  const virt = RepoMode.absToVirt(root, abs);
+  assert.strictEqual(virt, '/home/user/projects/demo');
+  const slug = RepoMode.slugFromUrl('https://github.com/acme/hello-world.git');
+  assert.strictEqual(slug, 'hello-world');
+  const parsed = RepoMode.parseStatusPorcelain(' M src/a.js\n?? new.txt\n');
+  assert.strictEqual(parsed.dirty, 2);
+});
+
+case_('default acceptance includes run_tests for repo goal', () => {
+  const tests = Delivery.defaultAcceptanceForTask(
+    'build',
+    'Clone https://github.com/acme/app and fix tests',
+  );
+  assert(tests.some((t) => /run_tests/i.test(t)));
+});
+
 const failed = results.filter((r) => !r.ok);
 console.log('\n' + (results.length - failed.length) + '/' + results.length + ' passed');
 if (failed.length) {

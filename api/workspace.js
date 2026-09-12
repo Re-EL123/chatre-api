@@ -34,6 +34,54 @@ module.exports = async function handler(req, res) {
     const action = url.searchParams.get('action') || '';
 
     if (req.method === 'GET') {
+      if (action === 'repo') {
+        if (!id) {
+          return sendJson(res, 400, { error: 'id required for repo' });
+        }
+        const ws = await workspace.getWorkspace(id);
+        const gate = assertWs(ws, auth);
+        if (!gate.ok) return sendJson(res, gate.status, { error: gate.error });
+        let live = null;
+        try {
+          const RepoMode = require('../lib/repo-mode');
+          const files = (await workspace.listFiles(id)) || {};
+          const ctx = {
+            workspaceId: id,
+            files,
+            repo: ws.repo || null,
+            activeProject: ws.activeProject || null,
+            cwd: ws.cwd || '/home/user',
+          };
+          if (RepoMode.isRepoMode(ctx)) {
+            live = RepoMode.repoStatus(ctx);
+            if (live && live.ok && ctx.repo) {
+              // keep response in sync with live status
+            }
+          }
+        } catch (e) {
+          live = { ok: false, error: String((e && e.message) || e) };
+        }
+        return sendJson(res, 200, {
+          repo: (ws && ws.repo) || null,
+          branch:
+            (live && live.branch) ||
+            (ws.repo && ws.repo.branch) ||
+            (ws.git && ws.git.branch) ||
+            null,
+          head: (live && live.head) || (ws.repo && ws.repo.head) || null,
+          dirty:
+            live && live.dirty != null
+              ? live.dirty
+              : ws.repo && ws.repo.dirty != null
+                ? ws.repo.dirty
+                : null,
+          lastTest: (ws && ws.lastTest) || null,
+          testsOk: !!(ws && ws.testsOk),
+          status: live,
+          revision: (ws && ws.revision) || 0,
+        });
+      }
+
       if (action === 'export') {
         if (!id) {
           return sendJson(res, 400, { error: 'id required for export' });
