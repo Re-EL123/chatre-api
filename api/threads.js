@@ -45,6 +45,20 @@ module.exports = async function handler(req, res) {
         const list = await threads.listMessages(threadId);
         return sendJson(res, 200, { messages: list });
       }
+      if (threadId && action === 'audit') {
+        const thr = await threads.getThread(threadId);
+        const gate = assertThreadAccess(thr, auth);
+        if (!gate.ok) return sendJson(res, gate.status, { error: gate.error });
+        const run = thr.agentRun || {};
+        return sendJson(res, 200, {
+          threadId,
+          audit: run.audit || null,
+          proof: run.proof || null,
+          auditSummary: run.auditSummary || null,
+          status: run.status || null,
+          runId: run.runId || null,
+        });
+      }
       if (threadId) {
         const thr = await threads.getThread(threadId);
         const gate = assertThreadAccess(thr, auth);

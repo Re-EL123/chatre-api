@@ -110,3 +110,12 @@ Paste the same token into the toolbar API key field — status badge shows **Con
 - Never put the Firebase **service account** in the static site.
 - Apply `firestore.rules` so clients cannot read/write `sites/chatre/**`.
 - Command execution is allowlisted (or isolated via Sandbox when enabled).
+
+
+## Enterprise delivery
+
+- **Done proof** on agent `done` events (`proof` + `audit` summary); full audit via `GET /api/threads?id=…&action=audit`
+- **Acceptance tests** in PLAN.md + briefing; hard gates for build/debug (preview required)
+- **Role model routing** via `CHATRE_MODEL_*` env vars; spend cap `CHATRE_RUN_TOKEN_BUDGET`
+- **Golden evals:** `npm run golden-eval` (also on `predeploy`)
+- Secrets redacted in run logs / SSE emits

@@ -2,7 +2,7 @@
   "name": "chatre-api",
   "version": "1.0.0",
   "private": true,
-  "description": "Vercel serverless API for Chatre — Firestore persistence, workspace sandbox, streaming agent",
+  "description": "Vercel serverless API for Chatre \u2014 Firestore persistence, workspace sandbox, streaming agent",
   "engines": {
     "node": "22.x"
   },
@@ -10,7 +10,9 @@
     "dev": "vercel dev --listen 8080",
     "start": "node scripts/selfhost.js",
     "check-env": "node scripts/check-env.js",
-    "predeploy": "node scripts/check-env.js"
+    "predeploy": "node scripts/check-env.js && node scripts/golden-eval.js",
+    "golden-eval": "node scripts/golden-eval.js",
+    "test:golden": "node scripts/golden-eval.js"
   },
   "dependencies": {
     "firebase-admin": "^13.0.0",
