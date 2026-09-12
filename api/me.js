@@ -41,6 +41,8 @@ module.exports = async function handler(req, res) {
           id: profile.id,
           email: profile.email,
           displayName: profile.displayName || '',
+          role: auth.role || 'user',
+          authKind: auth.kind,
           defaults: profile.defaults || {
             provider: 'chatre',
             model: users.DEFAULT_MODEL,
@@ -71,6 +73,8 @@ module.exports = async function handler(req, res) {
           id: profile.id,
           email: profile.email,
           displayName: profile.displayName || '',
+          role: auth.role || 'user',
+          authKind: auth.kind,
           defaults: profile.defaults,
           byok: users.byokConfiguredFlags(byokDoc),
           encryptionReady: encryptionConfigured(),

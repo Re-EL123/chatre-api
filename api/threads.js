@@ -8,7 +8,7 @@ const { ensureWorkspace } = require('../lib/workspace');
 function assertThreadAccess(thr, auth) {
   if (!thr) return { ok: false, status: 404, error: 'Thread not found' };
   if (auth.kind === 'service') {
-    return { ok: false, status: 403, error: 'Service token cannot access user threads' };
+    return { ok: false, status: 403, error: 'Admin service token cannot access user threads (RBAC)' };
   }
   if (thr.userId && thr.userId !== auth.uid) {
     return { ok: false, status: 403, error: 'Thread access denied' };
@@ -27,7 +27,8 @@ module.exports = async function handler(req, res) {
 
   if (auth.kind === 'service') {
     return sendJson(res, 403, {
-      error: 'Service token cannot list or mutate user threads — sign in as a user',
+      error:
+        'Admin service token cannot list or mutate user threads — sign in as a user (RBAC)',
     });
   }
 

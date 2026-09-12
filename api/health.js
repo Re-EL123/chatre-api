@@ -30,6 +30,7 @@ module.exports = async function handler(req, res) {
       connected: true,
       status: 'connected',
       authKind: auth.kind,
+      role: auth.role || (auth.kind === 'service' ? 'admin' : 'user'),
       uid: auth.uid || null,
       service: 'chatre-api',
       siteId: SITE_ID,
