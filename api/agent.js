@@ -29,7 +29,7 @@ module.exports = async function handler(req, res) {
     return sendJson(res, 400, { error: e.message });
   }
 
-  const wantResume = body.resume === true || body.approvePlan === true;
+  let wantResume = body.resume === true || body.approvePlan === true;
   const message = String(body.message || body.prompt || '').trim();
   if (!message && !wantResume) {
     return sendJson(res, 400, { error: 'message required (or resume:true)' });
@@ -47,6 +47,17 @@ module.exports = async function handler(req, res) {
       return sendJson(res, 404, { error: 'Thread not found' });
     }
 
+    // Answering a paused clarify resumes the same run (message = choice).
+    if (
+      !wantResume &&
+      message &&
+      thr &&
+      thr.agentRun &&
+      thr.agentRun.status === 'awaiting_clarify'
+    ) {
+      wantResume = true;
+    }
+
     if (wantResume) {
       if (!thr) {
         return sendJson(res, 400, { error: 'threadId required to resume' });
@@ -57,7 +68,8 @@ module.exports = async function handler(req, res) {
         st !== 'awaiting_plan' &&
         st !== 'awaiting_login' &&
         st !== 'awaiting_approval' &&
-        st !== 'awaiting_shell'
+        st !== 'awaiting_shell' &&
+        st !== 'awaiting_clarify'
       ) {
         return sendJson(res, 409, {
           error:
@@ -121,6 +133,7 @@ module.exports = async function handler(req, res) {
       budgetMs: body.budgetMs,
       approvePlan: body.approvePlan === true,
       briefingOverride: body.briefing || null,
+      briefingSeed: body.briefingSeed || null,
       skipPlanApproval: body.skipPlanApproval === true || body.approvePlan === true,
       autonomy,
       approvedTools: body.approvedTools || null,
