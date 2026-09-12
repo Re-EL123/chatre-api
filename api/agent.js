@@ -120,6 +120,7 @@ module.exports = async function handler(req, res) {
       byokFlags,
       profile.defaults || {},
     );
+    const customAgents = users.listCustomAgents(profile);
 
     const runOpts = {
       threadId: thr.id,
@@ -138,6 +139,10 @@ module.exports = async function handler(req, res) {
       autonomy,
       approvedTools: body.approvedTools || null,
       autoResumeCount: Number(body.autoResumeCount) || 0,
+      agentName: body.agent || body.agentName || null,
+      composerMode: body.composerMode || body.mode || null,
+      thoroughness: body.thoroughness || 'medium',
+      customAgents,
     };
 
     if (!wantStream) {

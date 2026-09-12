@@ -3,6 +3,7 @@
     "api/health.js": { "maxDuration": 10 },
     "api/me.js": { "maxDuration": 15 },
     "api/models.js": { "maxDuration": 15 },
+    "api/agents.js": { "maxDuration": 60 },
     "api/threads.js": { "maxDuration": 20 },
     "api/workspace.js": { "maxDuration": 30 },
     "api/exec.js": { "maxDuration": 60 },
