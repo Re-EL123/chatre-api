@@ -198,6 +198,53 @@ case_('default acceptance includes run_tests for repo goal', () => {
   assert(tests.some((t) => /run_tests/i.test(t)));
 });
 
+
+case_('parseDiagnosticOutput tsc and eslint lines', () => {
+  const RepoMode = require('../lib/repo-mode');
+  const ctx = {
+    activeProject: 'demo',
+    repo: { mode: 'git', root: '/home/user/projects/demo' },
+    files: {},
+  };
+  const tsc = RepoMode.parseDiagnosticOutput(
+    "src/a.ts(12,5): error TS2322: Type 'string' is not assignable to type 'number'.",
+    'tsc',
+    ctx,
+  );
+  assert.strictEqual(tsc.length, 1);
+  assert.strictEqual(tsc[0].line, 12);
+  assert.strictEqual(tsc[0].severity, 'error');
+  assert(/\/home\/user\/projects\/demo\/src\/a\.ts$/.test(tsc[0].file));
+  const eslint = RepoMode.parseDiagnosticOutput(
+    'lib/x.js:3:10: error Unexpected var',
+    'eslint',
+    ctx,
+  );
+  assert.strictEqual(eslint.length, 1);
+  assert.strictEqual(eslint[0].col, 10);
+  assert.strictEqual(eslint[0].source, 'eslint');
+});
+
+case_('diagnostics payload shape on lastDiagnostics', () => {
+  const lastDiagnostics = {
+    ok: false,
+    problems: [
+      {
+        file: '/home/user/projects/demo/a.ts',
+        line: 1,
+        col: 1,
+        severity: 'error',
+        message: 'x',
+        source: 'tsc',
+      },
+    ],
+    notes: [],
+    at: new Date().toISOString(),
+  };
+  assert.strictEqual(lastDiagnostics.problems.length, 1);
+  assert.strictEqual(lastDiagnostics.ok, false);
+});
+
 const failed = results.filter((r) => !r.ok);
 console.log('\n' + (results.length - failed.length) + '/' + results.length + ' passed');
 if (failed.length) {

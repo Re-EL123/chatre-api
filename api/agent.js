@@ -143,6 +143,12 @@ module.exports = async function handler(req, res) {
       composerMode: body.composerMode || body.mode || null,
       thoroughness: body.thoroughness || 'medium',
       customAgents,
+      activeFile: body.activeFile || body.active_file || null,
+      openFiles: Array.isArray(body.openFiles)
+        ? body.openFiles
+        : Array.isArray(body.open_files)
+          ? body.open_files
+          : null,
     };
 
     if (!wantStream) {

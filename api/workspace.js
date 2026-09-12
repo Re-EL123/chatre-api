@@ -77,7 +77,37 @@ module.exports = async function handler(req, res) {
                 : null,
           lastTest: (ws && ws.lastTest) || null,
           testsOk: !!(ws && ws.testsOk),
+          lastDiagnostics: (ws && ws.lastDiagnostics) || null,
+          problemCount:
+            (ws &&
+              ws.lastDiagnostics &&
+              Array.isArray(ws.lastDiagnostics.problems) &&
+              ws.lastDiagnostics.problems.length) ||
+            0,
+          runConfigs: (ws && ws.runConfigs) || null,
           status: live,
+          revision: (ws && ws.revision) || 0,
+        });
+      }
+
+      if (action === 'diagnostics') {
+        if (!id) {
+          return sendJson(res, 400, { error: 'id required for diagnostics' });
+        }
+        const ws = await workspace.getWorkspace(id);
+        const gate = assertWs(ws, auth);
+        if (!gate.ok) return sendJson(res, gate.status, { error: gate.error });
+        const lastDiagnostics = (ws && ws.lastDiagnostics) || null;
+        const problems =
+          (lastDiagnostics && Array.isArray(lastDiagnostics.problems)
+            ? lastDiagnostics.problems
+            : []) || [];
+        return sendJson(res, 200, {
+          problems,
+          lastDiagnostics,
+          testsOk: !!(ws && ws.testsOk),
+          lastTest: (ws && ws.lastTest) || null,
+          runConfigs: (ws && ws.runConfigs) || null,
           revision: (ws && ws.revision) || 0,
         });
       }
