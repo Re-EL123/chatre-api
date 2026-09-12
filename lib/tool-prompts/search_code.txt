@@ -1,0 +1,1 @@
+Search file contents for a pattern (workspace Grep). Prefer this over execute_command with grep/rg. Optional path scopes the search.

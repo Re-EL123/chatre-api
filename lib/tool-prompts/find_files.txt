@@ -1,0 +1,1 @@
+Find files by name/glob pattern in the workspace. Prefer this over execute_command with find/ls -R.

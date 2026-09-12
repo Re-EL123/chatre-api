@@ -1,0 +1,1 @@
+Create or overwrite a workspace file with FULL contents. Prefer this over shell redirection (echo >, cat <<EOF). Always pass complete file content — never truncate mid-file. Put project sources under /home/user/projects/<slug>/.

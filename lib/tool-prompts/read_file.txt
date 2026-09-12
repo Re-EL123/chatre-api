@@ -1,0 +1,1 @@
+Read a file from the workspace by path. Prefer this over execute_command with cat/head/tail. For huge files, prefer search_code first or read focused sections after a spill path hint.

@@ -1,0 +1,31 @@
+Executes a bash command in the workspace shell (modes: workspace|sandbox|local) with optional timeout. Streams stdout/stderr. Prefer workspace. Use sandbox for untrusted installs. local needs approved=true via companion. Cancel hangs with execute_command_cancel. Interactive installers: shell_open → shell_write → shell_read → shell_close. On needs_input (password/y/n), pause for the user — never guess secrets.
+
+IMPORTANT: This tool is for terminal operations (git, npm, node, python, docker, build/test runners, etc.). DO NOT use it for file operations (reading, writing, editing, searching, finding files) — use specialized tools instead.
+
+All commands run in the current working directory by default. Use the `cwd` (or `workdir`) parameter to run in a different directory. AVOID `cd &&` patterns — pass cwd instead.
+
+Before executing:
+1. Directory check — if creating files/dirs, verify the parent exists (list_directory / ls) first.
+2. Quote paths with spaces: mkdir "/home/user/My Documents" (correct); mkdir /home/user/My Documents (incorrect).
+
+Usage notes:
+- `cmd` (or `command`) is required. Optional: cwd/workdir, timeoutMs, mode, network, pack, approved.
+- Default timeout is ~25s (cap 180s). Prefer short, focused commands.
+- If output exceeds ~2000 lines or ~50KB, it is truncated and the FULL output is written under /home/user/tmp/. Use read_file (offset/limit) or search_code on that path. Do NOT pipe through head/tail to limit output yourself.
+- Prefer dedicated tools over shell file ops:
+  - File search: find_files (NOT find/ls -R)
+  - Content search: search_code (NOT grep/rg)
+  - Read: read_file (NOT cat/head/tail)
+  - Edit: patch_file / apply_patch (NOT sed/awk)
+  - Write: write_file (NOT echo >/cat <<EOF)
+  - Communicate in chat (NOT echo/printf as the answer)
+- Independent commands: issue multiple execute_command calls in one turn when safe to parallelize.
+- Dependent commands: chain with && in one call (e.g. npm install && npm test). Use ; only when earlier failure is OK. Do not separate with bare newlines.
+- Prefer cwd="/home/user/projects/foo" + cmd:"npm test" over "cd /home/user/projects/foo && npm test".
+
+# Git and GitHub
+- Only commit, amend, push, or create PRs when the user explicitly asked.
+- Before committing: git status, git diff, git log --oneline -10; stage only intended files; never commit secrets (.env, credentials).
+- Concise commit message matching repo style. Never update git config, skip hooks, use interactive -i, force-push, or empty commits unless explicitly requested.
+- If commit/hooks fail: fix and create a NEW commit — do not amend the failed one.
+- Prefer git_* tools when available for simple status/add/commit; use execute_command for advanced git/gh flows.
