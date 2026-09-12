@@ -41,19 +41,8 @@ module.exports = async function handler(req, res) {
         const ws = await workspace.getWorkspace(id);
         const gate = assertWs(ws, auth);
         if (!gate.ok) return sendJson(res, gate.status, { error: gate.error });
-        const files = (await workspace.listFiles(id)) || {};
-        const exportFiles = {};
-        Object.values(files).forEach((f) => {
-          if (f && f.type === 'file' && f.path) {
-            exportFiles[f.path] = f.content || '';
-          }
-        });
-        return sendJson(res, 200, {
-          workspace: ws,
-          files: exportFiles,
-          fileCount: Object.keys(exportFiles).length,
-          exportedAt: new Date().toISOString(),
-        });
+        const exported = await workspace.exportWorkspace(id);
+        return sendJson(res, 200, exported);
       }
 
       if (action === 'diff') {
@@ -74,6 +63,7 @@ module.exports = async function handler(req, res) {
           current,
           unified: unifiedDiff(previous, current, filePath),
           updatedAt: file.updatedAt || null,
+          revision: ws.revision || 0,
         });
       }
 
@@ -88,10 +78,14 @@ module.exports = async function handler(req, res) {
       if (filePath) {
         const file = await workspace.getFile(id, filePath);
         if (!file) return sendJson(res, 404, { error: 'File not found' });
-        return sendJson(res, 200, { file });
+        return sendJson(res, 200, { file, revision: ws.revision || 0 });
       }
       const files = await workspace.listFiles(id);
-      return sendJson(res, 200, { workspace: ws, files });
+      return sendJson(res, 200, {
+        workspace: ws,
+        files,
+        revision: ws.revision || 0,
+      });
     }
 
     if (req.method === 'POST') {
@@ -102,11 +96,36 @@ module.exports = async function handler(req, res) {
         if (!gate.ok) return sendJson(res, gate.status, { error: gate.error });
         if (!body.path) return sendJson(res, 400, { error: 'path required' });
         const prev = await workspace.getFile(id, body.path);
-        const file = await workspace.putFile(id, {
-          path: body.path,
-          type: body.type || 'file',
-          content: body.content || '',
-          children: body.children || [],
+        let file;
+        try {
+          file = await workspace.putFile(
+            id,
+            {
+              path: body.path,
+              type: body.type || 'file',
+              content: body.content != null ? body.content : '',
+              children: body.children || [],
+              encoding: body.encoding || 'utf8',
+            },
+            {
+              allowEmpty: !!body.allowEmpty || !!body.overwrite_empty,
+              overwrite_empty: !!body.overwrite_empty,
+            },
+          );
+        } catch (e) {
+          if (e && e.code === 'EMPTY_WRITE_BLOCKED') {
+            return sendJson(res, 409, { error: e.message, code: e.code });
+          }
+          throw e;
+        }
+        const bumped = await workspace.bumpRevision(id, {
+          expectedRevision:
+            body.expectedRevision != null ? body.expectedRevision : undefined,
+        }).catch(async (e) => {
+          if (e && e.code === 'REVISION_CONFLICT') {
+            return workspace.bumpRevision(id, {});
+          }
+          throw e;
         });
         return sendJson(res, 200, {
           file,
@@ -116,6 +135,7 @@ module.exports = async function handler(req, res) {
               : prev && prev.type === 'file'
                 ? prev.content
                 : null,
+          revision: bumped.revision,
         });
       }
       if (action === 'diff' && id) {
@@ -136,6 +156,7 @@ module.exports = async function handler(req, res) {
           current,
           previous,
           unified: unifiedDiff(previous, current, body.path),
+          revision: ws.revision || 0,
         });
       }
       if (action === 'activeProject' && id) {
@@ -163,16 +184,19 @@ module.exports = async function handler(req, res) {
             lastActiveAt: new Date().toISOString(),
           }),
         });
-        await workspace.saveSnapshot(id, {
+        const snap = await workspace.saveSnapshot(id, {
           cwd: root,
           projects,
           activeProject: slug,
+          expectedRevision:
+            body.expectedRevision != null ? body.expectedRevision : undefined,
         });
         const updated = await workspace.getWorkspace(id);
         return sendJson(res, 200, {
           workspace: updated,
           activeProject: slug,
           root,
+          revision: snap.revision,
         });
       }
       const ws = await workspace.createWorkspace({
@@ -180,7 +204,7 @@ module.exports = async function handler(req, res) {
         userId: auth.uid,
       });
       const files = await workspace.listFiles(ws.id);
-      return sendJson(res, 201, { workspace: ws, files });
+      return sendJson(res, 201, { workspace: ws, files, revision: 0 });
     }
 
     if (req.method === 'DELETE') {
@@ -190,13 +214,36 @@ module.exports = async function handler(req, res) {
       const ws = await workspace.getWorkspace(id);
       const gate = assertWs(ws, auth);
       if (!gate.ok) return sendJson(res, gate.status, { error: gate.error });
-      await workspace.deleteFile(id, filePath);
-      return sendJson(res, 200, { ok: true });
+      const files = (await workspace.listFiles(id)) || {};
+      const result = await workspace.deleteFileTree(id, files, filePath, {
+        cwd: ws.cwd,
+        git: ws.git,
+        projects: ws.projects,
+        activeProject: ws.activeProject,
+      });
+      return sendJson(res, 200, {
+        ok: true,
+        deleted: result.deleted,
+        revision: result.revision,
+      });
     }
 
     return sendJson(res, 405, { error: 'Method not allowed' });
   } catch (err) {
     console.error(err);
+    if (err && err.code === 'REVISION_CONFLICT') {
+      return sendJson(res, 409, {
+        error: err.message || 'revision conflict',
+        code: 'REVISION_CONFLICT',
+        revision: err.revision,
+      });
+    }
+    if (err && err.code === 'EMPTY_WRITE_BLOCKED') {
+      return sendJson(res, 409, {
+        error: err.message,
+        code: 'EMPTY_WRITE_BLOCKED',
+      });
+    }
     return sendJson(res, 500, { error: err.message || 'workspace failed' });
   }
 };
