@@ -7,7 +7,8 @@
     "api/workspace.js": { "maxDuration": 30 },
     "api/exec.js": { "maxDuration": 60 },
     "api/companion.js": { "maxDuration": 30 },
-    "api/agent.js": { "maxDuration": 300 }
+    "api/agent.js": { "maxDuration": 300 },
+    "api/chat.js": { "maxDuration": 60 }
   },
   "headers": [
     {
