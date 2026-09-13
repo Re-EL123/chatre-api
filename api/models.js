@@ -67,6 +67,25 @@ const ZAI_SUGGESTIONS = [
   'glm-4.5-flash',
 ];
 
+const GROQ_SUGGESTIONS = [
+  'llama-3.3-70b-versatile',
+  'llama-3.1-8b-instant',
+  'meta-llama/llama-4-scout-17b-16e-instruct',
+  'qwen/qwen3-32b',
+  'openai/gpt-oss-120b',
+];
+
+const DEEPSEEK_SUGGESTIONS = ['deepseek-chat', 'deepseek-reasoner'];
+
+const MISTRAL_SUGGESTIONS = [
+  'mistral-small-latest',
+  'mistral-large-latest',
+  'codestral-latest',
+  'pixtral-large-latest',
+];
+
+const XAI_SUGGESTIONS = ['grok-3-mini', 'grok-3', 'grok-2-latest'];
+
 module.exports = async function handler(req, res) {
   if (handleCors(req, res)) return;
   if (req.method !== 'GET') {
@@ -120,6 +139,50 @@ module.exports = async function handler(req, res) {
           id,
           label: id,
           value: 'zai:' + id,
+        })),
+      });
+    }
+    if (flags.groq) {
+      groups.push({
+        provider: 'groq',
+        label: 'Groq',
+        models: GROQ_SUGGESTIONS.map((id) => ({
+          id,
+          label: id,
+          value: 'groq:' + id,
+        })),
+      });
+    }
+    if (flags.deepseek) {
+      groups.push({
+        provider: 'deepseek',
+        label: 'DeepSeek',
+        models: DEEPSEEK_SUGGESTIONS.map((id) => ({
+          id,
+          label: id,
+          value: 'deepseek:' + id,
+        })),
+      });
+    }
+    if (flags.mistral) {
+      groups.push({
+        provider: 'mistral',
+        label: 'Mistral',
+        models: MISTRAL_SUGGESTIONS.map((id) => ({
+          id,
+          label: id,
+          value: 'mistral:' + id,
+        })),
+      });
+    }
+    if (flags.xai) {
+      groups.push({
+        provider: 'xai',
+        label: 'xAI (Grok)',
+        models: XAI_SUGGESTIONS.map((id) => ({
+          id,
+          label: id,
+          value: 'xai:' + id,
         })),
       });
     }
