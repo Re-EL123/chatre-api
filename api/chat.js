@@ -53,6 +53,83 @@ module.exports = async function handler(req, res) {
 
   const model = String(body.model || '').trim();
   const { provider } = parseModel(model);
+  const mode = String(body.mode || body.chatMode || 'chat').toLowerCase();
+
+  // Editor stack: inline complete / structured edit (still /api/chat — no new route)
+  if (mode === 'complete' || mode === 'edit') {
+    const ContextRag = require('../lib/context-rag');
+    const ContextCache = require('../lib/context-cache');
+    const workspace = require('../lib/workspace');
+    let contextPack = String(body.contextPack || body.context || '');
+    const workspaceId = body.workspaceId || body.workspace_id || '';
+    if (!contextPack && workspaceId) {
+      const ws = await workspace.getWorkspace(workspaceId);
+      if (ws && (!ws.userId || ws.userId === auth.uid)) {
+        const files = (await workspace.listFiles(workspaceId)) || {};
+        const rev = Number(ws.revision || 0);
+        let index = ContextCache.getCachedIndex(workspaceId, rev);
+        if (!index) {
+          index = ContextRag.buildIndex(files, { revision: rev });
+          ContextCache.setCachedIndex(workspaceId, rev, index);
+        }
+        const pack = ContextRag.packContext({
+          files,
+          index,
+          query: body.query || body.instruction || body.prefix || '',
+          activeFile: body.activeFile || '',
+          openFiles: Array.isArray(body.openFiles) ? body.openFiles : [],
+          selection: body.selection || '',
+          cursor: body.cursor || null,
+          maxChars: mode === 'complete' ? 6000 : 14000,
+        });
+        contextPack = pack.text;
+      }
+    }
+    const routedMessages =
+      mode === 'complete'
+        ? ContextRag.buildCompleteMessages({
+            prefix: body.prefix || '',
+            suffix: body.suffix || '',
+            language: body.language || '',
+            contextPack,
+          })
+        : ContextRag.buildEditMessages({
+            instruction: body.instruction || body.message || '',
+            contextPack,
+            activeFile: body.activeFile || '',
+          });
+    const editMax = Math.min(
+      Math.max(
+        Number(body.max_tokens || body.maxTokens) ||
+          (mode === 'complete' ? 128 : 2048),
+        32,
+      ),
+      mode === 'complete' ? 512 : 8192,
+    );
+    try {
+      const data = await chatRouted({
+        messages: routedMessages,
+        model,
+        maxTokens: editMax,
+        userId: auth.uid,
+        agent: false,
+        mode: 'chat',
+      });
+      return sendJson(res, 200, {
+        response: data.response || data.text || '',
+        mode,
+        model,
+        provider,
+      });
+    } catch (err) {
+      console.error(err);
+      return sendJson(res, 500, {
+        error: err && err.message ? err.message : String(err),
+        mode,
+      });
+    }
+  }
+
   if (provider !== 'chatre' && !auth.uid) {
     return sendJson(res, 401, { error: 'BYOK requires a signed-in user' });
   }

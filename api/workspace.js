@@ -90,6 +90,56 @@ module.exports = async function handler(req, res) {
         });
       }
 
+
+      if (action === 'context' || action === 'index') {
+        if (!id) {
+          return sendJson(res, 400, { error: 'id required for context' });
+        }
+        const ws = await workspace.getWorkspace(id);
+        const gate = assertWs(ws, auth);
+        if (!gate.ok) return sendJson(res, gate.status, { error: gate.error });
+        const ContextRag = require('../lib/context-rag');
+        const ContextCache = require('../lib/context-cache');
+        const files = (await workspace.listFiles(id)) || {};
+        const rev = Number((ws && ws.revision) || 0);
+        let index = ContextCache.getCachedIndex(id, rev);
+        const force = action === 'index' || url.searchParams.get('rebuild') === '1';
+        if (!index || force) {
+          index = ContextRag.buildIndex(files, { revision: rev });
+          ContextCache.setCachedIndex(id, rev, index);
+        }
+        if (action === 'index') {
+          return sendJson(res, 200, {
+            ok: true,
+            revision: rev,
+            fileCount: index.fileCount,
+            chunkCount: index.chunkCount,
+            builtAt: index.builtAt,
+          });
+        }
+        const q = url.searchParams.get('q') || url.searchParams.get('query') || '';
+        const activeFile = url.searchParams.get('activeFile') || '';
+        const openFilesRaw = url.searchParams.get('openFiles') || '';
+        const openFiles = openFilesRaw
+          ? openFilesRaw.split('|').map((s) => s.trim()).filter(Boolean).slice(0, 16)
+          : [];
+        const pack = ContextRag.packContext({
+          files,
+          index,
+          query: q || activeFile,
+          activeFile,
+          openFiles,
+          maxChars: Number(url.searchParams.get('maxChars')) || 12000,
+        });
+        return sendJson(res, 200, {
+          pack: pack.text,
+          hits: pack.hits,
+          chars: pack.chars,
+          index: pack.indexMeta,
+          revision: rev,
+        });
+      }
+
       if (action === 'diagnostics') {
         if (!id) {
           return sendJson(res, 400, { error: 'id required for diagnostics' });
@@ -168,6 +218,47 @@ module.exports = async function handler(req, res) {
 
     if (req.method === 'POST') {
       const body = await readBody(req);
+
+      if ((action === 'context' || action === 'index') && id) {
+        const ws = await workspace.getWorkspace(id);
+        const gate = assertWs(ws, auth);
+        if (!gate.ok) return sendJson(res, gate.status, { error: gate.error });
+        const ContextRag = require('../lib/context-rag');
+        const ContextCache = require('../lib/context-cache');
+        const files = (await workspace.listFiles(id)) || {};
+        const rev = Number((ws && ws.revision) || 0);
+        let index = ContextCache.getCachedIndex(id, rev);
+        if (!index || action === 'index' || body.rebuild) {
+          index = ContextRag.buildIndex(files, { revision: rev });
+          ContextCache.setCachedIndex(id, rev, index);
+        }
+        if (action === 'index') {
+          return sendJson(res, 200, {
+            ok: true,
+            revision: rev,
+            fileCount: index.fileCount,
+            chunkCount: index.chunkCount,
+            builtAt: index.builtAt,
+          });
+        }
+        const pack = ContextRag.packContext({
+          files,
+          index,
+          query: body.query || body.q || body.activeFile || '',
+          activeFile: body.activeFile || '',
+          openFiles: Array.isArray(body.openFiles) ? body.openFiles.slice(0, 16) : [],
+          selection: body.selection || '',
+          cursor: body.cursor || null,
+          maxChars: body.maxChars || 12000,
+        });
+        return sendJson(res, 200, {
+          pack: pack.text,
+          hits: pack.hits,
+          chars: pack.chars,
+          index: pack.indexMeta,
+          revision: rev,
+        });
+      }
       if (action === 'file' && id) {
         const ws = await workspace.getWorkspace(id);
         const gate = assertWs(ws, auth);
@@ -205,6 +296,9 @@ module.exports = async function handler(req, res) {
           }
           throw e;
         });
+        try {
+          require('../lib/context-cache').clearCachedIndex(id);
+        } catch (e) {}
         return sendJson(res, 200, {
           file,
           previous:
