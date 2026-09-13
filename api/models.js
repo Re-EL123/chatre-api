@@ -59,6 +59,14 @@ const AIHUBMIX_SUGGESTIONS = [
   'deepseek-v3',
 ];
 
+const ZAI_SUGGESTIONS = [
+  'glm-5.3-flash',
+  'glm-5.3',
+  'glm-4.7',
+  'glm-4.6',
+  'glm-4.5-flash',
+];
+
 module.exports = async function handler(req, res) {
   if (handleCors(req, res)) return;
   if (req.method !== 'GET') {
@@ -101,6 +109,17 @@ module.exports = async function handler(req, res) {
           id,
           label: id,
           value: 'aihubmix:' + id,
+        })),
+      });
+    }
+    if (flags.zai) {
+      groups.push({
+        provider: 'zai',
+        label: 'Z.ai',
+        models: ZAI_SUGGESTIONS.map((id) => ({
+          id,
+          label: id,
+          value: 'zai:' + id,
         })),
       });
     }

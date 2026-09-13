@@ -5,7 +5,7 @@ const { readBody, sendJson, requireUser } = require('../lib/http');
 const users = require('../lib/users');
 const { encrypt, encryptionConfigured } = require('../lib/crypto-secrets');
 
-const PROVIDERS = ['openrouter', 'aihubmix', 'anthropic', 'openai', 'google'];
+const PROVIDERS = ['openrouter', 'aihubmix', 'zai', 'anthropic', 'openai', 'google'];
 
 module.exports = async function handler(req, res) {
   if (handleCors(req, res)) return;
