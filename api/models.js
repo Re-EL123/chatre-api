@@ -27,14 +27,37 @@ const CHATRE_MODELS = [
   },
 ];
 
-const OPENROUTER_SUGGESTIONS = [
+// Live free catalog changes; IDs verified against OpenRouter /api/v1/models.
+const OPENROUTER_FREE_SUGGESTIONS = [
+  'openrouter/free',
+  'nvidia/nemotron-3.5-lightning:free',
+  'nvidia/nemotron-3-super-120b-a12b:free',
+  'nvidia/nemotron-3-ultra-550b-a55b:free',
+  'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
+  'google/gemma-4-31b-it:free',
+  'google/gemma-4-26b-a4b-it:free',
+  'poolside/laguna-s-2.1:free',
+  'poolside/laguna-xs-2.1:free',
+  'thinkingmachines/inkling:free',
+  'thinkingmachines/inkling-small:free',
+  'cohere/north-mini-code:free',
+  'nex-agi/nex-n2.5-pro:free',
+  'nex-agi/nex-n2.5-mini:free',
+  'liquid/lfm-2.5-2.6b:free',
+  'inclusionai/ling-3.0-flash-fin:free',
+];
+
+const OPENROUTER_PAID_SUGGESTIONS = [
   'openai/gpt-4o-mini',
   'openai/gpt-4o',
   'anthropic/claude-sonnet-4',
-  'anthropic/claude-3.5-sonnet',
-  'google/gemini-3.6-flash',
+  'google/gemini-2.5-flash',
   'meta-llama/llama-3.3-70b-instruct',
 ];
+
+const OPENROUTER_SUGGESTIONS = OPENROUTER_FREE_SUGGESTIONS.concat(
+  OPENROUTER_PAID_SUGGESTIONS,
+);
 
 const ANTHROPIC_SUGGESTIONS = [
   'claude-sonnet-4-20250514',
@@ -45,9 +68,10 @@ const ANTHROPIC_SUGGESTIONS = [
 const OPENAI_SUGGESTIONS = ['gpt-4o-mini', 'gpt-4o', 'o4-mini'];
 
 const GOOGLE_SUGGESTIONS = [
-  'gemini-3.6-flash',
-  'gemini-3.5-flash',
-  'gemini-3.5-flash-lite',
+  'gemini-2.5-flash',
+  'gemini-2.5-flash-lite',
+  'gemini-2.0-flash',
+  'gemini-2.0-flash-lite',
 ];
 
 const AIHUBMIX_SUGGESTIONS = [
@@ -64,15 +88,13 @@ const ZAI_SUGGESTIONS = [
   'glm-5.3',
   'glm-4.7',
   'glm-4.6',
-  'glm-4.5-flash',
 ];
 
 const GROQ_SUGGESTIONS = [
-  'llama-3.3-70b-versatile',
-  'llama-3.1-8b-instant',
-  'meta-llama/llama-4-scout-17b-16e-instruct',
-  'qwen/qwen3-32b',
+  'openai/gpt-oss-20b',
   'openai/gpt-oss-120b',
+  'qwen/qwen3.6-27b',
+  'groq/compound',
 ];
 
 const DEEPSEEK_SUGGESTIONS = ['deepseek-chat', 'deepseek-reasoner'];
@@ -115,8 +137,13 @@ module.exports = async function handler(req, res) {
         label: 'OpenRouter',
         models: OPENROUTER_SUGGESTIONS.map((id) => ({
           id,
-          label: id,
+          label: /:free$/i.test(id)
+            ? id.replace(/:free$/i, '') + ' (free)'
+            : id === 'openrouter/free'
+              ? 'Auto free router'
+              : id,
           value: 'openrouter:' + id,
+          free: /:free$/i.test(id) || id === 'openrouter/free',
         })),
       });
     }
@@ -148,8 +175,9 @@ module.exports = async function handler(req, res) {
         label: 'Groq',
         models: GROQ_SUGGESTIONS.map((id) => ({
           id,
-          label: id,
+          label: id + ' (free tier)',
           value: 'groq:' + id,
+          free: true,
         })),
       });
     }
