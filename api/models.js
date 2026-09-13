@@ -50,6 +50,15 @@ const GOOGLE_SUGGESTIONS = [
   'gemini-3.5-flash-lite',
 ];
 
+const AIHUBMIX_SUGGESTIONS = [
+  'gpt-4o-mini',
+  'gpt-4o',
+  'claude-3-5-sonnet-latest',
+  'claude-sonnet-4-20250514',
+  'gemini-2.5-flash',
+  'deepseek-v3',
+];
+
 module.exports = async function handler(req, res) {
   if (handleCors(req, res)) return;
   if (req.method !== 'GET') {
@@ -81,6 +90,17 @@ module.exports = async function handler(req, res) {
           id,
           label: id,
           value: 'openrouter:' + id,
+        })),
+      });
+    }
+    if (flags.aihubmix) {
+      groups.push({
+        provider: 'aihubmix',
+        label: 'AIHubMix',
+        models: AIHUBMIX_SUGGESTIONS.map((id) => ({
+          id,
+          label: id,
+          value: 'aihubmix:' + id,
         })),
       });
     }
