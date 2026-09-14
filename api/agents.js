@@ -1,50 +1,76 @@
 'use strict';
 
 const { handleCors } = require('../lib/cors');
-const { readBody, sendJson, requireUser } = require('../lib/http');
+const { readBody, sendJson, requireUser, resolveAuth } = require('../lib/http');
 const users = require('../lib/users');
 const { listNative, mergeUserAgents } = require('../lib/agents');
 const { generateCustomAgent } = require('../lib/agent-helpers');
 const { preferByokModel } = require('../lib/autonomy');
 
+function serializeAgents(map, includeHidden) {
+  return Object.keys(map)
+    .map((k) => map[k])
+    .filter((a) => includeHidden || !a.hidden)
+    .map((a) => ({
+      name: a.name,
+      description: a.description || a.whenToUse || '',
+      whenToUse: a.whenToUse || '',
+      mode: a.mode,
+      native: !!a.native,
+      hidden: !!a.hidden,
+      color: a.color || null,
+      steps: a.steps || null,
+    }))
+    .sort((a, b) => {
+      if (!!a.native !== !!b.native) return a.native ? -1 : 1;
+      return String(a.name).localeCompare(String(b.name));
+    });
+}
+
+function nativeOnlyPayload() {
+  const native = listNative({ includeHidden: false });
+  const map = mergeUserAgents([]);
+  return {
+    agents: serializeAgents(map, false),
+    native,
+    custom: [],
+    public: true,
+  };
+}
+
 module.exports = async function handler(req, res) {
   if (handleCors(req, res)) return;
-  const auth = await requireUser(req, res);
-  if (!auth) return;
 
   const url = new URL(req.url, 'http://localhost');
   const action = String(url.searchParams.get('action') || '').toLowerCase();
 
   try {
-    const profile = await users.ensureUser(auth.uid, auth.email || '');
-    const custom = users.listCustomAgents(profile);
-
     if (req.method === 'GET') {
       const includeHidden = url.searchParams.get('hidden') === '1';
+      const auth = await resolveAuth(req);
+
+      // Native catalog is public — avoids 401 noise before Firebase sign-in.
+      if (!auth || auth.kind !== 'user') {
+        return sendJson(res, 200, nativeOnlyPayload());
+      }
+
+      const profile = await users.ensureUser(auth.uid, auth.email || '');
+      const custom = users.listCustomAgents(profile);
       const map = mergeUserAgents(custom);
-      const agents = Object.keys(map)
-        .map((k) => map[k])
-        .filter((a) => includeHidden || !a.hidden)
-        .map((a) => ({
-          name: a.name,
-          description: a.description || a.whenToUse || '',
-          whenToUse: a.whenToUse || '',
-          mode: a.mode,
-          native: !!a.native,
-          hidden: !!a.hidden,
-          color: a.color || null,
-          steps: a.steps || null,
-        }))
-        .sort((a, b) => {
-          if (!!a.native !== !!b.native) return a.native ? -1 : 1;
-          return String(a.name).localeCompare(String(b.name));
-        });
       return sendJson(res, 200, {
-        agents,
+        agents: serializeAgents(map, includeHidden),
         native: listNative({ includeHidden: false }),
         custom,
+        public: false,
       });
     }
+
+    // Mutations still require a signed-in user (not service token).
+    const auth = await requireUser(req, res);
+    if (!auth) return;
+
+    const profile = await users.ensureUser(auth.uid, auth.email || '');
+    const custom = users.listCustomAgents(profile);
 
     if (req.method === 'POST') {
       const body = await readBody(req);
