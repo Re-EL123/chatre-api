@@ -297,11 +297,26 @@ module.exports = async function handler(req, res) {
             const key = decrypt(blob);
             const live = await listCursorModels(key);
             if (live && live.length) {
-              cursorModels = live.map((it) => ({
-                id: it.id,
-                label: it.displayName || it.id,
-                value: 'cursor:' + it.id,
-              }));
+              const seen = new Set();
+              cursorModels = [];
+              live.forEach((it) => {
+                if (!it.id || seen.has(it.id)) return;
+                seen.add(it.id);
+                cursorModels.push({
+                  id: it.id,
+                  label: it.displayName || CURSOR_LABELS[it.id] || it.id,
+                  value: 'cursor:' + it.id,
+                });
+              });
+              // Keep known Composer IDs even if the live list is sparse.
+              CURSOR_SUGGESTIONS.forEach((id) => {
+                if (seen.has(id)) return;
+                cursorModels.unshift({
+                  id,
+                  label: CURSOR_LABELS[id] || id,
+                  value: 'cursor:' + id,
+                });
+              });
             }
           }
         }
@@ -310,7 +325,7 @@ module.exports = async function handler(req, res) {
       }
       groups.push({
         provider: 'cursor',
-        label: 'Cursor',
+        label: 'Cursor (Cloud Agents)',
         models: cursorModels,
       });
     }
