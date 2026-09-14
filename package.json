@@ -10,12 +10,14 @@
     "dev": "vercel dev --listen 8080",
     "start": "node scripts/selfhost.js",
     "check-env": "node scripts/check-env.js",
-    "predeploy": "node scripts/check-env.js && node scripts/golden-eval.js && node scripts/understanding-eval.js",
+    "predeploy": "node scripts/check-env.js && node scripts/golden-eval.js && node scripts/understanding-eval.js && node scripts/train-understanding-classifier.js",
     "golden-eval": "node scripts/golden-eval.js",
     "test:golden": "node scripts/golden-eval.js",
     "understanding-eval": "node scripts/understanding-eval.js",
     "test:understanding": "node scripts/understanding-eval.js",
-    "sync-understanding-client": "node scripts/sync-understanding-client.js"
+    "sync-understanding-client": "node scripts/sync-understanding-client.js",
+    "train:understanding": "node scripts/train-understanding-classifier.js",
+    "export:understanding": "node scripts/export-understanding-dataset.js"
   },
   "dependencies": {
     "firebase-admin": "^13.0.0",

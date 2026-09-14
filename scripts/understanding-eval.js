@@ -623,6 +623,26 @@ case_('chat_proof_light_ok', () => {
   assert.strictEqual(proof.acceptance.ok, true);
 });
 
+case_('classifier_artifact_loaded', () => {
+  const Classifier = require('../lib/understanding-classifier');
+  const art = Classifier.loadArtifact(true);
+  assert(art && art.schema === 'chatre.understanding.classifier.v1', 'missing artifact — run npm run train:understanding');
+  assert(art.metrics && art.metrics.taskAcc >= 0.9, 'taskAcc=' + (art.metrics && art.metrics.taskAcc));
+});
+
+case_('classifier_predicts_calculator_build', () => {
+  const r = Understanding.scoreRouter('build a calculator in html');
+  assert.strictEqual(r.top, 'build', 'top=' + r.top);
+  assert(r.classifier, 'expected classifier blend');
+  assert.strictEqual(r.classifier.needs_clarify, false);
+});
+
+case_('classifier_predicts_vague_clarify', () => {
+  const r = Understanding.scoreRouter('make me something cool');
+  assert(r.classifier, 'expected classifier blend');
+  assert.strictEqual(r.classifier.needs_clarify, true);
+});
+
 const failed = results.filter((r) => !r.ok);
 console.log('\n' + (results.length - failed.length) + '/' + results.length + ' passed');
 if (failed.length) process.exit(1);
