@@ -134,6 +134,16 @@ const GROQ_SUGGESTIONS = [
 
 const DEEPSEEK_SUGGESTIONS = ['deepseek-chat', 'deepseek-reasoner'];
 
+const MODELSCOPE_SUGGESTIONS = [
+  'Qwen/Qwen2.5-Coder-32B-Instruct',
+  'Qwen/Qwen3-Coder-30B-A3B-Instruct',
+  'Qwen/Qwen3-30B-A3B-Instruct-2507',
+  'Qwen/Qwen3-235B-A22B-Instruct-2507',
+  'ZhipuAI/GLM-4.6',
+  'ZhipuAI/GLM-4.5',
+  'deepseek-ai/DeepSeek-R1',
+];
+
 const MISTRAL_SUGGESTIONS = [
   'mistral-small-latest',
   'mistral-large-latest',
@@ -224,6 +234,17 @@ module.exports = async function handler(req, res) {
           id,
           label: id,
           value: 'deepseek:' + id,
+        })),
+      });
+    }
+    if (flags.modelscope) {
+      groups.push({
+        provider: 'modelscope',
+        label: 'ModelScope',
+        models: MODELSCOPE_SUGGESTIONS.map((id) => ({
+          id,
+          label: id,
+          value: 'modelscope:' + id,
         })),
       });
     }
