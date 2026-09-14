@@ -8,3 +8,4 @@ data/
 .DS_Store
 service-account*.json
 firebase-adminsdk*.json
+.vercel

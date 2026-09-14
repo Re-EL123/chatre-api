@@ -67,18 +67,53 @@ const ANTHROPIC_SUGGESTIONS = [
 
 const OPENAI_SUGGESTIONS = ['gpt-4o-mini', 'gpt-4o', 'o4-mini'];
 
+/** Chat-capable Gemini IDs (Google AI Studio / generativelanguage API). */
 const GOOGLE_SUGGESTIONS = [
+  'gemini-3.8-flash',
+  'gemini-3.7-flash',
+  'gemini-3.6-flash',
+  'gemini-3.5-flash',
+  'gemini-3.5-flash-lite',
+  'gemini-3.1-flash-lite',
+  'gemini-3.1-pro-preview',
+  'gemini-3-flash-preview',
+  'gemini-2.5-pro',
   'gemini-2.5-flash',
   'gemini-2.5-flash-lite',
-  'gemini-2.0-flash',
-  'gemini-2.0-flash-lite',
 ];
+
+const GOOGLE_LABELS = {
+  'gemini-3.8-flash': 'Gemini 3.8 Flash (latest)',
+  'gemini-3.7-flash': 'Gemini 3.7 Flash',
+  'gemini-3.6-flash': 'Gemini 3.6 Flash',
+  'gemini-3.5-flash': 'Gemini 3.5 Flash',
+  'gemini-3.5-flash-lite': 'Gemini 3.5 Flash-Lite',
+  'gemini-3.1-flash-lite': 'Gemini 3.1 Flash-Lite',
+  'gemini-3.1-pro-preview': 'Gemini 3.1 Pro (preview)',
+  'gemini-3-flash-preview': 'Gemini 3 Flash (preview)',
+  'gemini-2.5-pro': 'Gemini 2.5 Pro',
+  'gemini-2.5-flash': 'Gemini 2.5 Flash',
+  'gemini-2.5-flash-lite': 'Gemini 2.5 Flash-Lite',
+};
+
+const CURSOR_SUGGESTIONS = [
+  'composer-2.5',
+  'composer-2',
+  'composer-1.5',
+];
+const CURSOR_LABELS = {
+  'composer-2.5': 'Composer 2.5',
+  'composer-2': 'Composer 2',
+  'composer-1.5': 'Composer 1.5',
+};
+
 
 const AIHUBMIX_SUGGESTIONS = [
   'gpt-4o-mini',
   'gpt-4o',
   'claude-3-5-sonnet-latest',
   'claude-sonnet-4-20250514',
+  'gemini-3.8-flash',
   'gemini-2.5-flash',
   'deepseek-v3',
 ];
@@ -242,9 +277,41 @@ module.exports = async function handler(req, res) {
         label: 'Google Gemini',
         models: GOOGLE_SUGGESTIONS.map((id) => ({
           id,
-          label: id,
+          label: GOOGLE_LABELS[id] || id,
           value: 'google:' + id,
         })),
+      });
+    }
+    if (flags.cursor) {
+      let cursorModels = CURSOR_SUGGESTIONS.map((id) => ({
+        id,
+        label: CURSOR_LABELS[id] || id,
+        value: 'cursor:' + id,
+      }));
+      try {
+        const { listCursorModels } = require('../lib/providers/cursor');
+        const { decrypt, encryptionConfigured } = require('../lib/crypto-secrets');
+        if (encryptionConfigured()) {
+          const blob = byokDoc && byokDoc.cursor;
+          if (blob) {
+            const key = decrypt(blob);
+            const live = await listCursorModels(key);
+            if (live && live.length) {
+              cursorModels = live.map((it) => ({
+                id: it.id,
+                label: it.displayName || it.id,
+                value: 'cursor:' + it.id,
+              }));
+            }
+          }
+        }
+      } catch {
+        /* keep static suggestions */
+      }
+      groups.push({
+        provider: 'cursor',
+        label: 'Cursor',
+        models: cursorModels,
       });
     }
   }
