@@ -5,7 +5,8 @@ const { readBody, sendJson, requireUser } = require('../lib/http');
 const users = require('../lib/users');
 const { encrypt, encryptionConfigured } = require('../lib/crypto-secrets');
 
-const PROVIDERS = ['openrouter', 'aihubmix', 'zai', 'groq', 'deepseek', 'modelscope', 'mistral', 'xai', 'anthropic', 'openai', 'google', 'cursor'];
+const { BYOK_PROVIDER_IDS } = require('../lib/providers/byok-providers');
+const PROVIDERS = BYOK_PROVIDER_IDS;
 
 module.exports = async function handler(req, res) {
   if (handleCors(req, res)) return;

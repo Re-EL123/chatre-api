@@ -144,6 +144,55 @@ const MODELSCOPE_SUGGESTIONS = [
   'deepseek-ai/DeepSeek-R1',
 ];
 
+const OLLAMA_SUGGESTIONS = [
+  'gpt-oss:20b',
+  'gpt-oss:120b',
+  'deepseek-v3.1:671b',
+  'qwen3-coder:480b',
+  'kimi-k2:1t',
+];
+
+const KILO_SUGGESTIONS = [
+  'kilo-auto/free',
+  'nvidia/nemotron-3.5-lightning:free',
+  'stepfun/step-3.7-flash:free',
+  'poolside/laguna-s-2.1:free',
+  'nvidia/nemotron-3-super-120b-a12b:free',
+  'openrouter/free',
+];
+
+const CLOUDFLARE_SUGGESTIONS = [
+  '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
+  '@cf/meta/llama-3.1-8b-instruct',
+  '@cf/openai/gpt-oss-120b',
+  '@cf/meta/llama-4-scout-17b-16e-instruct',
+  '@cf/google/gemma-3-12b-it',
+];
+
+const LLM7_SUGGESTIONS = ['fast', 'default', 'gpt-oss:20b', 'minimax-m2.7'];
+
+const OVHCLOUD_SUGGESTIONS = [
+  'Meta-Llama-3_3-70B-Instruct',
+  'Mistral-Nemo-Instruct-2407',
+  'gpt-oss-20b',
+  'Mistral-Small-3.2-24B-Instruct',
+];
+
+const HUGGINGFACE_SUGGESTIONS = [
+  'openai/gpt-oss-120b:fastest',
+  'Qwen/Qwen2.5-Coder-32B-Instruct',
+  'meta-llama/Meta-Llama-3.1-8B-Instruct',
+  'google/gemma-3-4b-it',
+];
+
+const DASHSCOPE_SUGGESTIONS = [
+  'qwen-plus',
+  'qwen-turbo',
+  'qwen-max',
+  'qwen3-coder-plus',
+  'qwen-vl-plus',
+];
+
 const MISTRAL_SUGGESTIONS = [
   'mistral-small-latest',
   'mistral-large-latest',
@@ -245,6 +294,88 @@ module.exports = async function handler(req, res) {
           id,
           label: id,
           value: 'modelscope:' + id,
+        })),
+      });
+    }
+    if (flags.ollama) {
+      groups.push({
+        provider: 'ollama',
+        label: 'Ollama Cloud',
+        models: OLLAMA_SUGGESTIONS.map((id) => ({
+          id,
+          label: id,
+          value: 'ollama:' + id,
+          free: true,
+        })),
+      });
+    }
+    if (flags.kilo) {
+      groups.push({
+        provider: 'kilo',
+        label: 'Kilo Code',
+        models: KILO_SUGGESTIONS.map((id) => ({
+          id,
+          label: id,
+          value: 'kilo:' + id,
+          free: /:free$/i.test(id) || id === 'kilo-auto/free',
+        })),
+      });
+    }
+    if (flags.cloudflare) {
+      groups.push({
+        provider: 'cloudflare',
+        label: 'Cloudflare Workers AI',
+        models: CLOUDFLARE_SUGGESTIONS.map((id) => ({
+          id,
+          label: id,
+          value: 'cloudflare:' + id,
+          free: true,
+        })),
+      });
+    }
+    if (flags.llm7) {
+      groups.push({
+        provider: 'llm7',
+        label: 'LLM7.io',
+        models: LLM7_SUGGESTIONS.map((id) => ({
+          id,
+          label: id,
+          value: 'llm7:' + id,
+          free: true,
+        })),
+      });
+    }
+    if (flags.ovhcloud) {
+      groups.push({
+        provider: 'ovhcloud',
+        label: 'OVHcloud AI Endpoints',
+        models: OVHCLOUD_SUGGESTIONS.map((id) => ({
+          id,
+          label: id,
+          value: 'ovhcloud:' + id,
+          free: true,
+        })),
+      });
+    }
+    if (flags.huggingface) {
+      groups.push({
+        provider: 'huggingface',
+        label: 'Hugging Face',
+        models: HUGGINGFACE_SUGGESTIONS.map((id) => ({
+          id,
+          label: id,
+          value: 'huggingface:' + id,
+        })),
+      });
+    }
+    if (flags.dashscope) {
+      groups.push({
+        provider: 'dashscope',
+        label: 'Alibaba Model Studio',
+        models: DASHSCOPE_SUGGESTIONS.map((id) => ({
+          id,
+          label: id,
+          value: 'dashscope:' + id,
         })),
       });
     }
