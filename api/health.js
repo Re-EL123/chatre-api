@@ -3,6 +3,7 @@
 const { handleCors } = require('../lib/cors');
 const { sendJson, resolveAuth } = require('../lib/http');
 const { getBackend, SITE_ID } = require('../lib/firebase');
+const { BYOK_PROVIDER_IDS } = require('../lib/providers/byok-providers');
 
 module.exports = async function handler(req, res) {
   if (handleCors(req, res)) return;
@@ -39,6 +40,7 @@ module.exports = async function handler(req, res) {
       workerConfigured: !!process.env.CHATRE_WORKER_URL,
       browserTools: !!process.env.CHATRE_WORKER_URL,
       sandbox: process.env.USE_VERCEL_SANDBOX === '1',
+      byokProviders: BYOK_PROVIDER_IDS,
       time: new Date().toISOString(),
     });
   }
@@ -49,6 +51,8 @@ module.exports = async function handler(req, res) {
     siteId: SITE_ID,
     backend: getBackend(),
     projectId: process.env.FIREBASE_PROJECT_ID || 're-el-eed0d',
+    byokProviders: BYOK_PROVIDER_IDS,
+    gitSha: process.env.VERCEL_GIT_COMMIT_SHA || null,
     time: new Date().toISOString(),
   });
 };
