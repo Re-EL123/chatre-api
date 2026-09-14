@@ -164,7 +164,52 @@ async function probes() {
   console.log('');
   if (failed) {
     console.log('FAILED:', failed, 'required check(s). Fix before deploy.\n');
-    process.exit(1);
+    
+// ── API surface hard cap (≤12) ──────────────────────────────────
+try {
+  const surface = require('../lib/api-surface');
+  const apiDir = path.join(root, 'api');
+  const apiFiles = fs
+    .readdirSync(apiDir)
+    .filter((f) => f.endsWith('.js'))
+    .map((f) => f.replace(/\.js$/, ''))
+    .sort();
+  const expected = (surface.ROUTES || []).slice().sort();
+  if (apiFiles.length > surface.MAX_API_FUNCTIONS) {
+    bad(
+      'API surface ≤' + surface.MAX_API_FUNCTIONS,
+      'found ' + apiFiles.length + ' routes: ' + apiFiles.join(', '),
+    );
+  } else if (apiFiles.join(',') !== expected.join(',')) {
+    warn(
+      'API surface routes',
+      'disk=[' +
+        apiFiles.join(', ') +
+        '] catalog=[' +
+        expected.join(', ') +
+        '] (' +
+        apiFiles.length +
+        '/' +
+        surface.MAX_API_FUNCTIONS +
+        ')',
+    );
+  } else {
+    ok(
+      'API surface ≤' + surface.MAX_API_FUNCTIONS,
+      apiFiles.length + '/' + surface.MAX_API_FUNCTIONS + ' — ' + apiFiles.join(', '),
+    );
+  }
+  try {
+    const stack = require('../lib/secret-stack').describe();
+    ok('Secret Stack', 'layers=' + stack.layers.length + ' headroom=' + stack.headroom);
+  } catch (e) {
+    warn('Secret Stack', e.message);
+  }
+} catch (e) {
+  warn('API surface check', e.message);
+}
+
+process.exit(1);
   }
   console.log('All required checks passed.\n');
   process.exit(0);

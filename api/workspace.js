@@ -115,6 +115,9 @@ module.exports = async function handler(req, res) {
             fileCount: index.fileCount,
             chunkCount: index.chunkCount,
             builtAt: index.builtAt,
+            merkleRoot: index.merkleRoot || null,
+            engine: index.engine || 'chatre-context-v2',
+            stack: 'layer2-context',
           });
         }
         const q = url.searchParams.get('q') || url.searchParams.get('query') || '';
@@ -123,21 +126,56 @@ module.exports = async function handler(req, res) {
         const openFiles = openFilesRaw
           ? openFilesRaw.split('|').map((s) => s.trim()).filter(Boolean).slice(0, 16)
           : [];
+        const mode = url.searchParams.get('mode') || 'hybrid';
         const pack = ContextRag.packContext({
           files,
           index,
           query: q || activeFile,
           activeFile,
           openFiles,
+          mode,
+          diagnostics: (ws && ws.lastDiagnostics && ws.lastDiagnostics.problems) || [],
           maxChars: Number(url.searchParams.get('maxChars')) || 12000,
         });
         return sendJson(res, 200, {
           pack: pack.text,
           hits: pack.hits,
           chars: pack.chars,
+          mode: pack.mode,
+          priorities: pack.priorities || [],
           index: pack.indexMeta,
           revision: rev,
+          merkleRoot: index && index.merkleRoot,
+          stack: 'layer2-context',
         });
+      }
+
+
+      if (action === 'stack') {
+        const SecretStack = require('../lib/secret-stack');
+        return sendJson(res, 200, SecretStack.describe());
+      }
+
+      if (action === 'worktree') {
+        if (!id) {
+          return sendJson(res, 400, { error: 'id required for worktree' });
+        }
+        const ws = await workspace.getWorkspace(id);
+        const gate = assertWs(ws, auth);
+        if (!gate.ok) return sendJson(res, gate.status, { error: gate.error });
+        const Worktree = require('../lib/worktree-sandbox');
+        const cwd =
+          (ws.repo && ws.repo.root) ||
+          ws.cwd ||
+          process.cwd();
+        const root = Worktree.resolveRepoRoot(cwd);
+        if (!root) {
+          return sendJson(res, 400, {
+            error: 'Not a git repo — worktrees unavailable',
+            cwd,
+          });
+        }
+        return sendJson(res, 200, Object.assign({ ok: true, root }, Worktree.listWorktrees(root)));
       }
 
       if (action === 'diagnostics') {
@@ -239,6 +277,9 @@ module.exports = async function handler(req, res) {
             fileCount: index.fileCount,
             chunkCount: index.chunkCount,
             builtAt: index.builtAt,
+            merkleRoot: index.merkleRoot || null,
+            engine: index.engine || 'chatre-context-v2',
+            stack: 'layer2-context',
           });
         }
         const pack = ContextRag.packContext({
@@ -249,16 +290,51 @@ module.exports = async function handler(req, res) {
           openFiles: Array.isArray(body.openFiles) ? body.openFiles.slice(0, 16) : [],
           selection: body.selection || '',
           cursor: body.cursor || null,
+          mode: body.mode || 'hybrid',
+          diagnostics:
+            body.diagnostics ||
+            (ws.lastDiagnostics && ws.lastDiagnostics.problems) ||
+            [],
           maxChars: body.maxChars || 12000,
         });
         return sendJson(res, 200, {
           pack: pack.text,
           hits: pack.hits,
           chars: pack.chars,
+          mode: pack.mode,
+          priorities: pack.priorities || [],
           index: pack.indexMeta,
           revision: rev,
+          merkleRoot: index && index.merkleRoot,
+          stack: 'layer2-context',
         });
       }
+
+      if (action === 'worktree' && id) {
+        const ws = await workspace.getWorkspace(id);
+        const gate = assertWs(ws, auth);
+        if (!gate.ok) return sendJson(res, gate.status, { error: gate.error });
+        const Worktree = require('../lib/worktree-sandbox');
+        const cwd = (ws.repo && ws.repo.root) || ws.cwd || process.cwd();
+        const root = Worktree.resolveRepoRoot(cwd);
+        if (!root) {
+          return sendJson(res, 400, { error: 'Not a git repo — worktrees unavailable' });
+        }
+        const op = String(body.op || body.action || 'list').toLowerCase();
+        if (op === 'create') {
+          const created = Worktree.createWorktree(root, {
+            id: body.worktreeId || body.name,
+            branch: body.branch,
+          });
+          return sendJson(res, created.ok ? 200 : 400, created);
+        }
+        if (op === 'remove' || op === 'delete') {
+          const removed = Worktree.removeWorktree(root, body.worktreeId || body.path || body.name);
+          return sendJson(res, removed.ok ? 200 : 400, removed);
+        }
+        return sendJson(res, 200, Object.assign({ ok: true, root }, Worktree.listWorktrees(root)));
+      }
+
       if (action === 'file' && id) {
         const ws = await workspace.getWorkspace(id);
         const gate = assertWs(ws, auth);
