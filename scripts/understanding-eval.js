@@ -445,6 +445,183 @@ case_('minimal_flags_extract', () => {
   assert(sig && typeof sig === 'object');
 });
 
+case_('multi_intent_explain_then_build', () => {
+  const msg =
+    'explain binary search then build a tiny demo at /home/user/projects/bs/index.html';
+  const b = normalizeBriefing(null, msg);
+  assert.strictEqual(b.task_type, 'build', 'task_type=' + b.task_type);
+  assert.strictEqual(b.deliverable_kind, 'deliver', 'kind=' + b.deliverable_kind);
+  assert.strictEqual(!!b.needs_clarification, false, 'clarify=' + b.needs_clarification);
+  assert(
+    (b.files || []).some((f) => String(f).indexOf('/home/user/projects/bs/index.html') >= 0),
+    'files=' + JSON.stringify(b.files),
+  );
+  const sig = Understanding.extractIntentSignals(msg);
+  assert.strictEqual(!!sig.multiIntent, true);
+});
+
+case_('answer_only_no_files', () => {
+  const msg = 'just answer — do not create any files. What is a closure?';
+  const b = normalizeBriefing(null, msg);
+  assert.strictEqual(b.deliverable_kind, 'answer', 'kind=' + b.deliverable_kind);
+  assert(!b.files || !b.files.length, 'files should be empty');
+  assert.strictEqual(!!b.needs_clarification, false);
+});
+
+case_('correction_rescore_pdf_path', () => {
+  const b = Understanding.applyCorrectionsWithRescore(
+    {
+      task_type: 'build',
+      deliverable_kind: 'deliver',
+      confidence: 0.55,
+      needs_clarification: true,
+      clarification_question: 'PDF or HTML?',
+      blocking_unknowns: ['what exact deliverable and where it should live'],
+      unknowns: ['what exact deliverable and where it should live'],
+      files: [],
+      assumptions: [],
+      constraints: [],
+    },
+    ['No, I meant a PDF in /home/user/documents/maat.pdf'],
+    'make me something cool',
+  );
+  assert.strictEqual(b.task_type, 'document', 'task_type=' + b.task_type);
+  assert.strictEqual(!!b.needs_clarification, false, 'clarify=' + b.needs_clarification);
+  assert(
+    (b.files || []).some((f) => String(f).indexOf('/home/user/documents/maat.pdf') >= 0),
+    'files=' + JSON.stringify(b.files),
+  );
+  assert(Number(b.confidence) >= 0.8, 'confidence=' + b.confidence);
+});
+
+case_('score_router_debug_top', () => {
+  const r = Understanding.scoreRouter('why is my node script failing with EADDRINUSE?');
+  assert.strictEqual(r.top, 'debug', 'top=' + r.top);
+  assert(r.confidence >= 0.7, 'conf=' + r.confidence);
+});
+
+case_('score_router_howto_not_build', () => {
+  const r = Understanding.scoreRouter('how do I build a webpack project?');
+  assert.strictEqual(r.top, 'question', 'top=' + r.top);
+});
+
+case_('understanding_log_record_shape', () => {
+  const UnderstandingLog = require('../lib/understanding-log');
+  const b = normalizeBriefing(null, 'make me something cool');
+  const rec = UnderstandingLog.buildUnderstandingRecord({
+    userMessage: 'make me something cool',
+    briefing: b,
+    runId: 'run_test',
+    outcome: 'analyzed',
+  });
+  assert.strictEqual(rec.schema, 'chatre.understanding.v1');
+  assert.strictEqual(!!rec.clarifyAsked, true);
+  assert(rec.metrics && typeof rec.metrics.overClarifyRisk === 'number');
+  const log = UnderstandingLog.appendToLog([], rec);
+  const summary = UnderstandingLog.summarizeUnderstandingLog(log);
+  assert.strictEqual(summary.count, 1);
+  assert.strictEqual(summary.clarifyAsked, 1);
+});
+
+case_('clarify_feedback_over', () => {
+  const fb = Understanding.detectClarifyFeedback('just do whatever you think is best');
+  assert(fb && fb.kind === 'over_clarify');
+});
+
+case_('path_exact_no_overclarify', () => {
+  const b = normalizeBriefing(
+    {
+      task_type: 'build',
+      deliverable_kind: 'deliver',
+      confidence: 0.9,
+      files: ['/home/user/projects/z/index.html'],
+      unknowns: ['tone of the page'],
+      needs_clarification: true,
+      clarification_question: 'What tone?',
+    },
+    'build a page at /home/user/projects/z/index.html',
+  );
+  assert.strictEqual(!!b.needs_clarification, false, 'clarify=' + b.needs_clarification);
+});
+
+case_('multi_intent_howto_and_scaffold', () => {
+  const msg = 'how does oauth work and also create a login page in html for me';
+  const b = normalizeBriefing(null, msg);
+  assert.strictEqual(b.deliverable_kind, 'deliver', 'kind=' + b.deliverable_kind);
+  assert(['build', 'mixed'].indexOf(b.task_type) >= 0, 'task_type=' + b.task_type);
+});
+
+case_('correction_answer_only', () => {
+  const b = Understanding.applyCorrectionsWithRescore(
+    {
+      task_type: 'build',
+      deliverable_kind: 'deliver',
+      confidence: 0.7,
+      files: ['/home/user/projects/x/index.html'],
+      needs_clarification: false,
+      assumptions: [],
+      constraints: [],
+      unknowns: [],
+    },
+    ['Actually just answer — do not create files'],
+    'build a page',
+  );
+  assert.strictEqual(b.deliverable_kind, 'answer');
+  assert(!b.files || !b.files.length);
+});
+
+case_('calculator_html_no_path_ask', () => {
+  const b = normalizeBriefing(null, 'buld a calculator in html');
+  assert.strictEqual(b.task_type, 'build', 'task_type=' + b.task_type);
+  assert.strictEqual(b.deliverable_kind, 'deliver');
+  assert.strictEqual(!!b.needs_clarification, false, 'clarify=' + b.needs_clarification);
+  assert(
+    (b.files || []).some((f) => /\/home\/user\/projects\/calculator\/index\.html/.test(f)),
+    'files=' + JSON.stringify(b.files),
+  );
+});
+
+case_('followup_in_workspace_expands', () => {
+  const expanded = Understanding.expandFollowUpMessage('in the workspace', [
+    { role: 'user', content: 'build a calculator in html' },
+    { role: 'assistant', content: 'Where should it be saved?' },
+  ]);
+  assert(/calculator/i.test(expanded), 'expanded=' + expanded);
+  assert(/do not ask where/i.test(expanded), 'expanded=' + expanded);
+  const b = normalizeBriefing(null, expanded);
+  assert.strictEqual(!!b.needs_clarification, false, 'clarify=' + b.needs_clarification);
+  assert.strictEqual(b.task_type, 'build');
+});
+
+case_('followup_you_recommend_no_clarify', () => {
+  const expanded = Understanding.expandFollowUpMessage(
+    'implement it the way you recomend fully',
+    [{ role: 'user', content: 'build a calculator in html' }],
+  );
+  const b = normalizeBriefing(null, expanded);
+  assert.strictEqual(!!b.needs_clarification, false, 'clarify=' + b.needs_clarification);
+  assert.strictEqual(b.deliverable_kind, 'deliver');
+});
+
+case_('repo_directive_alone', () => {
+  const b = normalizeBriefing(null, 'it should be a repo');
+  assert.strictEqual(!!b.needs_clarification, false);
+  assert.strictEqual(b.task_type, 'build');
+  assert.strictEqual(b.deliverable_kind, 'deliver');
+});
+
+case_('chat_proof_light_ok', () => {
+  const Delivery = require('../lib/delivery-contract');
+  const proof = Delivery.buildDoneProof({
+    taskType: 'chat',
+    briefing: { task_type: 'chat', deliverable_kind: 'answer', goal: 'hi' },
+    doneWhen: 'Friendly reply delivered',
+    deliverySuccess: true,
+    filesTouched: [],
+  });
+  assert.strictEqual(proof.ok, true);
+  assert.strictEqual(proof.acceptance.ok, true);
+});
 
 const failed = results.filter((r) => !r.ok);
 console.log('\n' + (results.length - failed.length) + '/' + results.length + ' passed');

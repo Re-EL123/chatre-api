@@ -57,6 +57,22 @@ module.exports = async function handler(req, res) {
           auditSummary: run.auditSummary || null,
           status: run.status || null,
           runId: run.runId || null,
+          understandingLog: thr.understandingLog || [],
+          understandingSummary: thr.understandingSummary || null,
+          lastUnderstanding: thr.lastUnderstanding || run.lastUnderstanding || null,
+          durableCorrections: thr.durableCorrections || [],
+        });
+      }
+      if (threadId && action === 'understanding') {
+        const thr = await threads.getThread(threadId);
+        const gate = assertThreadAccess(thr, auth);
+        if (!gate.ok) return sendJson(res, gate.status, { error: gate.error });
+        return sendJson(res, 200, {
+          threadId,
+          understandingLog: thr.understandingLog || [],
+          understandingSummary: thr.understandingSummary || null,
+          lastUnderstanding: thr.lastUnderstanding || null,
+          durableCorrections: thr.durableCorrections || [],
         });
       }
       if (threadId) {

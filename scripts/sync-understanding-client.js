@@ -45,7 +45,16 @@ function syncUnderstanding() {
     'suggestMode',
     'formatIntentContract',
     'mergeCorrections',
+    'applyCorrectionsWithRescore',
+    'scoreRouter',
     'detectCorrectionMessage',
+    'detectClarifyFeedback',
+    'isProceedDirective',
+    'isWorkspaceDirective',
+    'isRepoDirective',
+    'expandFollowUpMessage',
+    'inferDefaultFiles',
+    'guessProjectSlug',
     'answerFirstDoNot',
     'asStringList',
     'clamp01',
@@ -53,6 +62,7 @@ function syncUnderstanding() {
     'saveCorrection',
     'rememberIfCorrection',
     'correctionsKey',
+    'persistDurableCorrections',
   ];
 
   const clientHelpers = `
@@ -88,6 +98,29 @@ function rememberIfCorrection(text, threadId) {
   const detected = detectCorrectionMessage(text);
   if (!detected) return loadCorrections(threadId);
   return saveCorrection(threadId, detected);
+}
+
+function persistDurableCorrections(threadId, corrections) {
+  const tid = String(threadId || '').trim();
+  const list = asStringList(corrections);
+  if (!tid || !list.length) return Promise.resolve(list);
+  list.forEach(function (c) {
+    saveCorrection(tid, c);
+  });
+  try {
+    if (window.ChatreRemote && window.ChatreRemote.updateThread) {
+      return window.ChatreRemote.updateThread(tid, {
+        durableCorrections: loadCorrections(tid),
+      }).then(function () {
+        return loadCorrections(tid);
+      }).catch(function () {
+        return loadCorrections(tid);
+      });
+    }
+  } catch (e) {
+    /* ignore */
+  }
+  return Promise.resolve(loadCorrections(tid));
 }
 `;
 
