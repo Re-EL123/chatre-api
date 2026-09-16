@@ -102,7 +102,10 @@ module.exports = async function handler(req, res) {
         const ContextCache = require('../lib/context-cache');
         const files = (await workspace.listFiles(id)) || {};
         const rev = Number((ws && ws.revision) || 0);
-        let index = ContextCache.getCachedIndex(id, rev);
+        let index = ContextCache.getCachedIndex(id, rev, {
+          engine: 'chatre-context-v3',
+          requireDense: true,
+        });
         const force = action === 'index' || url.searchParams.get('rebuild') === '1';
         if (!index || force) {
           index = ContextRag.buildIndex(files, { revision: rev });
@@ -116,7 +119,8 @@ module.exports = async function handler(req, res) {
             chunkCount: index.chunkCount,
             builtAt: index.builtAt,
             merkleRoot: index.merkleRoot || null,
-            engine: index.engine || 'chatre-context-v2',
+            engine: index.engine || 'chatre-context-v3',
+            embed: index.embed || null,
             stack: 'layer2-context',
           });
         }
@@ -265,7 +269,10 @@ module.exports = async function handler(req, res) {
         const ContextCache = require('../lib/context-cache');
         const files = (await workspace.listFiles(id)) || {};
         const rev = Number((ws && ws.revision) || 0);
-        let index = ContextCache.getCachedIndex(id, rev);
+        let index = ContextCache.getCachedIndex(id, rev, {
+          engine: 'chatre-context-v3',
+          requireDense: true,
+        });
         if (!index || action === 'index' || body.rebuild) {
           index = ContextRag.buildIndex(files, { revision: rev });
           ContextCache.setCachedIndex(id, rev, index);
@@ -278,7 +285,8 @@ module.exports = async function handler(req, res) {
             chunkCount: index.chunkCount,
             builtAt: index.builtAt,
             merkleRoot: index.merkleRoot || null,
-            engine: index.engine || 'chatre-context-v2',
+            engine: index.engine || 'chatre-context-v3',
+            embed: index.embed || null,
             stack: 'layer2-context',
           });
         }
