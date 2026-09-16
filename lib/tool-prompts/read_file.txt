@@ -1,1 +1,3 @@
-Read a file from the workspace by path. Prefer this over execute_command with cat/head/tail. For huge files, prefer search_code first or read focused sections after a spill path hint.
+Read a file from the workspace by path. Prefer this over execute_command with cat/head/tail.
+For large files, pass start_line/end_line (1-indexed) or offset+limit — do not dump 1,000-line modules when editing one block.
+Prefer view_file_outline first to locate the right region, then read_file with a tight line range, then patch_file.
