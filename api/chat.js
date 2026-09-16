@@ -67,7 +67,10 @@ module.exports = async function handler(req, res) {
       if (ws && (!ws.userId || ws.userId === auth.uid)) {
         const files = (await workspace.listFiles(workspaceId)) || {};
         const rev = Number(ws.revision || 0);
-        let index = ContextCache.getCachedIndex(workspaceId, rev);
+        let index = ContextCache.getCachedIndex(workspaceId, rev, {
+          engine: 'chatre-context-v3',
+          requireDense: true,
+        });
         if (!index) {
           index = ContextRag.buildIndex(files, { revision: rev });
           ContextCache.setCachedIndex(workspaceId, rev, index);
