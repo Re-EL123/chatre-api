@@ -13,6 +13,7 @@
     "predeploy": "node scripts/check-env.js && node scripts/golden-eval.js && node scripts/understanding-eval.js && node scripts/train-understanding-classifier.js",
     "golden-eval": "node scripts/golden-eval.js",
     "test:golden": "node scripts/golden-eval.js",
+    "test:context": "node scripts/context-rag-eval.js",
     "understanding-eval": "node scripts/understanding-eval.js",
     "test:understanding": "node scripts/understanding-eval.js",
     "sync-understanding-client": "node scripts/sync-understanding-client.js",

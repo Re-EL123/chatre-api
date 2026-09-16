@@ -1,0 +1,2 @@
+Resolve a symbol name (function, class, type) to file paths and line ranges via the workspace AST import graph.
+Use when you know a symbol name but not its file — then ranged read_file / patch_file.

@@ -1,0 +1,2 @@
+Show import/importer edges for a file (or neighborhood) from the workspace import graph.
+direction: imports | importers | both. depth 1–5. Use before large refactors that cross module boundaries.

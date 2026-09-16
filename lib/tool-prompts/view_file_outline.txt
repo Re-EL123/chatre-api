@@ -1,2 +1,2 @@
-Return a structural outline of a source file (functions, classes, types, headings) with line numbers — without loading the full body into context.
-Use before ranged read_file or patch_file so you edit the right region with minimal churn.
+Return a structural outline of a source file (functions, classes, types with line/endLine) without loading the full body.
+Uses AST parsing (brace-aware; optional tree-sitter when CHATRE_TREE_SITTER=1). Prefer before ranged read_file or patch_file.

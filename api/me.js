@@ -30,6 +30,9 @@ module.exports = async function handler(req, res) {
     if (action === 'connectors' || action === 'connector' || url.pathname.endsWith('/connectors')) {
       return handleConnectors(req, res, auth, url);
     }
+    if (action === 'mcp') {
+      return handleMcp(req, res, auth, url);
+    }
     if (memory) {
       return handleMemory(req, res, auth, url);
     }
@@ -293,6 +296,70 @@ async function handleConnectors(req, res, auth, url) {
       encryptionReady: encryptionConfigured(),
       providers: CONNECTOR_PROVIDERS,
     });
+  }
+
+  return sendJson(res, 405, { error: 'Method not allowed' });
+}
+
+async function handleMcp(req, res, auth, url) {
+  const McpClient = require('../lib/mcp-client');
+  const op = String(url.searchParams.get('op') || '').toLowerCase();
+
+  if (req.method === 'GET') {
+    const connected = await McpClient.listConnections(auth.uid);
+    return sendJson(res, 200, {
+      ok: true,
+      connected,
+      registry: McpClient.REGISTRY.map((r) => ({
+        uuid: r.uuid,
+        name: r.name,
+        description: r.description,
+      })),
+      encryptionReady: encryptionConfigured(),
+    });
+  }
+
+  if (req.method === 'POST' || req.method === 'PUT') {
+    const body = await readBody(req);
+    const action = String(body.action || body.op || op || 'connect').toLowerCase();
+    if (action === 'search') {
+      const connected = (await McpClient.listConnections(auth.uid)).map((c) => c.uuid);
+      const results = McpClient.searchRegistry(body.query || '', connected);
+      return sendJson(res, 200, { ok: true, results });
+    }
+    if (action === 'disconnect') {
+      const result = await McpClient.disconnect(auth.uid, body.uuid || body.server);
+      return sendJson(res, result.ok ? 200 : 400, result);
+    }
+    if (action === 'call') {
+      const result = await McpClient.callMcp(
+        auth.uid,
+        body.server || body.uuid,
+        body.tool,
+        body.arguments || body.args || {},
+      );
+      return sendJson(res, result.ok ? 200 : 400, result);
+    }
+    if (action === 'list_tools') {
+      const result = await McpClient.listMcpTools(auth.uid, body.server || body.uuid);
+      return sendJson(res, result.ok ? 200 : 400, result);
+    }
+    // default: connect
+    await users.ensureUser(auth.uid, auth.email);
+    const result = await McpClient.connect(auth.uid, body.uuid || body.server, {
+      endpoint: body.endpoint,
+      token: body.token || body.apiKey || body.authorization,
+      authHeader: body.authHeader,
+      name: body.name,
+      tools: body.tools,
+    });
+    return sendJson(res, result.ok ? 200 : 400, result);
+  }
+
+  if (req.method === 'DELETE') {
+    const uuid = url.searchParams.get('uuid') || url.searchParams.get('server');
+    const result = await McpClient.disconnect(auth.uid, uuid);
+    return sendJson(res, result.ok ? 200 : 400, result);
   }
 
   return sendJson(res, 405, { error: 'Method not allowed' });
